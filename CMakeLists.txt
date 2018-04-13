@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # Numenta Platform for Intelligent Computing (NuPIC)
-# Copyright (C) 2015-2017, Numenta, Inc.  Unless you have purchased from
+# Copyright (C) 2015-2018, Numenta, Inc.  Unless you have purchased from
 # Numenta, Inc. a separate commercial license for this software code, the
 # following terms and conditions apply:
 #
@@ -18,69 +18,365 @@
 #
 # http://numenta.org/licenses/
 # -----------------------------------------------------------------------------
-
-cmake_minimum_required(VERSION 3.3)
-project(nupic_core CXX)
-
-set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}")
-
-set(CMAKE_VERBOSE_MAKEFILE OFF)
-
-get_filename_component(REPOSITORY_DIR ${PROJECT_SOURCE_DIR} ABSOLUTE)
-
-if( POLICY CMP0046 )
-  cmake_policy(VERSION 3.3)
-  # The new policy for add_dependencies is to now error if a dependency target
-  # is not found. The old policy didn't care and continued through configuration
-  cmake_policy(SET CMP0046 OLD)
-endif()
-
-if( POLICY CMP0054 )
-  # The OLD behavior for this policy is to dereference variables and interpret
-  # keywords even if they are quoted or bracketed. The NEW behavior is to not
-  # dereference variables or interpret keywords that have been quoted or bracketed.
-  cmake_policy(SET CMP0054 OLD)
-endif()
-
-
+# Minimal CMake configuration for nupic.base
 #
-# Global NuPIC CMake options
-#
-option(NUPIC_BUILD_PYEXT_MODULES
-       "Turn on building of python extension modules for nupic.bindings; turn off to build only static nupic_core lib with full symbol visibility."
-       ON)
 
-message(STATUS "NUPIC_BUILD_PYEXT_MODULES = ${NUPIC_BUILD_PYEXT_MODULES}")
-message(STATUS "PY_EXTENSIONS_DIR         = ${PY_EXTENSIONS_DIR}")
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
-message(STATUS "CMAKE_CXX_COMPILER_ID = ${CMAKE_CXX_COMPILER_ID}")
-message(STATUS "CMAKE_C_COMPILER      = ${CMAKE_C_COMPILER}")
-message(STATUS "CMAKE_CXX_COMPILER    = ${CMAKE_CXX_COMPILER}")
-message(STATUS "CMAKE_BUILD_TYPE      = ${CMAKE_BUILD_TYPE}")
-message(STATUS "CMAKE_INSTALL_PREFIX  = ${CMAKE_INSTALL_PREFIX}")
+include("cmake/HunterGate.cmake")
+option(HUNTER_ENABLED "Enable Hunter package manager. If OFF no installs will occur." ON)
+option(HUNTER_STATUS_DEBUG "Print info to help debug cmake scrips." ON)
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.20.24.tar.gz"
+    SHA1 "3e2037a462bcf2ec3440f60298d933e74ffd4df3"
+)
 
 
-# Identify platform name.
-string(TOLOWER ${CMAKE_SYSTEM_NAME} PLATFORM)
 
-# Define a platform suffix, eg ${PLATFORM}${BITNESS}${PLATFORM_SUFFIX}
-if (MSYS OR MINGW)
-  set(PLATFORM_SUFFIX -gcc)
+set(project_name nupic.base)
+
+project(${project_name} LANGUAGES CXX)
+
+# if install directory was not specified on the command line, default it to build/bin
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/bin" CACHE PATH "default install path" FORCE )
+endif()
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
+	set(HAS_GIT ON)
 endif()
 
 
-# Make sure we can link against any specified paths.
-include_directories(SYSTEM ${CMAKE_INCLUDE_PATH})
+##########################################
+# Download and install the dependencies
+##########################################
+# Boost 
+hunter_add_package(Boost COMPONENTS filesystem)
+find_package(Boost CONFIG REQUIRED filesystem)
+include_directories(${Boost_INCLUDE_DIRS})
+message(STATUS "Boost_INCLUDE_DIRS = ${Boost_INCLUDE_DIRS}")
 
-set(EP_BASE ${CMAKE_BINARY_DIR}/ThirdParty)
+# zlib
+hunter_add_package(ZLIB)
+find_package(ZLIB CONFIG REQUIRED)
+include_directories(${ZLIB_INCLUDE_DIRS})
+message(STATUS "ZLIB_INCLUDE_DIRS = ${ZLIB_INCLUDE_DIRS}")
 
+# yaml-cpps
+hunter_add_package(yaml-cpp)
+find_package(yaml-cpp CONFIG REQUIRED)
+
+
+# Library: link with GTest::main and GTest::gtest will be linked automatically
+hunter_add_package(GTest)
+find_package(GTest CONFIG REQUIRED)
+include_directories(${GTEST_ROOT}/include)
+message(STATUS "GTest_INCLUDE_DIRS = ${GTEST_ROOT}/include")
+
+
+##########################################
 # Determine common toolchain settings, compiler and link flags
-include(CommonCompilerConfig)
+##########################################
+include(CommonCompilerConfig.cmake)
 
-# Set up builds of external dependencies and get their exports.
-# (see individual external/*.cmake modules for exported settings and functions)
-add_subdirectory(external)
-include_directories(SYSTEM ${EXTERNAL_INCLUDE_DIRS})
 
-# Now build nupic_core project.
-add_subdirectory(src)
+message(STATUS "PROJECT_BINARY_DIR          = ${PROJECT_BINARY_DIR}")
+message(STATUS "CMAKE_INSTALL_PREFIX        = ${CMAKE_INSTALL_PREFIX}")
+
+
+
+###################
+# nupic static lib
+###################
+message(STATUS "Configuring library")
+
+set(lib_name ${project_name})
+set(nupic_src ${CMAKE_SOURCE_DIR}/src/nupic)
+
+set(algorithm_files
+    ${nupic_src}/algorithms/Anomaly.cpp
+    ${nupic_src}/algorithms/Anomaly.hpp
+    ${nupic_src}/algorithms/ArrayBuffer.hpp
+    ${nupic_src}/algorithms/BitHistory.cpp
+    ${nupic_src}/algorithms/BitHistory.hpp
+    ${nupic_src}/algorithms/Cell.cpp
+    ${nupic_src}/algorithms/Cell.hpp
+    ${nupic_src}/algorithms/Cells4.cpp
+    ${nupic_src}/algorithms/Cells4.hpp
+    ${nupic_src}/algorithms/ClassifierResult.cpp
+    ${nupic_src}/algorithms/ClassifierResult.hpp
+    ${nupic_src}/algorithms/CondProbTable.cpp
+    ${nupic_src}/algorithms/CondProbTable.hpp
+    ${nupic_src}/algorithms/Connections.cpp
+    ${nupic_src}/algorithms/Connections.hpp
+    ${nupic_src}/algorithms/GaborNode.cpp
+    ${nupic_src}/algorithms/GaborNode.hpp
+    ${nupic_src}/algorithms/ImageSensorLite.cpp
+    ${nupic_src}/algorithms/ImageSensorLite.hpp
+    ${nupic_src}/algorithms/InSynapse.cpp
+    ${nupic_src}/algorithms/InSynapse.hpp
+    ${nupic_src}/algorithms/OutSynapse.cpp
+    ${nupic_src}/algorithms/OutSynapse.hpp
+    ${nupic_src}/algorithms/Scanning.hpp
+    ${nupic_src}/algorithms/SDRClassifier.cpp
+    ${nupic_src}/algorithms/SDRClassifier.hpp
+    ${nupic_src}/algorithms/Segment.cpp
+    ${nupic_src}/algorithms/Segment.hpp
+    ${nupic_src}/algorithms/SegmentUpdate.cpp
+    ${nupic_src}/algorithms/SegmentUpdate.hpp
+    ${nupic_src}/algorithms/SpatialPooler.cpp
+    ${nupic_src}/algorithms/SpatialPooler.hpp
+    ${nupic_src}/algorithms/Svm.cpp
+    ${nupic_src}/algorithms/Svm.hpp
+    ${nupic_src}/algorithms/SvmT.hpp
+    ${nupic_src}/algorithms/TemporalMemory.cpp
+    ${nupic_src}/algorithms/TemporalMemory.hpp
+)
+
+set(encoders_files 
+    ${nupic_src}/encoders/ScalarEncoder.cpp
+    ${nupic_src}/encoders/ScalarEncoder.hpp
+    ${nupic_src}/encoders/ScalarSensor.cpp
+    ${nupic_src}/encoders/ScalarSensor.hpp
+)
+
+set(engine_files
+    ${nupic_src}/engine/Collections.cpp
+    ${nupic_src}/engine/Input.cpp
+    ${nupic_src}/engine/Input.hpp
+    ${nupic_src}/engine/Link.cpp
+    ${nupic_src}/engine/Link.hpp
+    ${nupic_src}/engine/LinkPolicy.hpp
+    ${nupic_src}/engine/LinkPolicyFactory.cpp
+    ${nupic_src}/engine/LinkPolicyFactory.hpp
+    ${nupic_src}/engine/Network.cpp
+    ${nupic_src}/engine/Network.hpp
+    ${nupic_src}/engine/NuPIC.cpp
+    ${nupic_src}/engine/NuPIC.hpp
+    ${nupic_src}/engine/Output.cpp
+    ${nupic_src}/engine/Output.hpp
+    # ${nupic_src}/engine/PyBindRegion.cpp
+    # ${nupic_src}/engine/PyBindRegion.hpp
+    ${nupic_src}/engine/Region.cpp
+    ${nupic_src}/engine/Region.hpp
+    ${nupic_src}/engine/RegionImpl.cpp
+    ${nupic_src}/engine/RegionImpl.hpp
+    ${nupic_src}/engine/RegionImplFactory.cpp
+    ${nupic_src}/engine/RegionImplFactory.hpp
+    ${nupic_src}/engine/RegionIo.cpp
+    ${nupic_src}/engine/RegionParameters.cpp
+    ${nupic_src}/engine/RegisteredRegionImpl.hpp
+    ${nupic_src}/engine/Spec.cpp
+    ${nupic_src}/engine/Spec.hpp
+    ${nupic_src}/engine/TestFanIn2LinkPolicy.cpp
+    ${nupic_src}/engine/TestFanIn2LinkPolicy.hpp
+    ${nupic_src}/engine/TestNode.cpp
+    ${nupic_src}/engine/TestNode.hpp
+    ${nupic_src}/engine/UniformLinkPolicy.cpp
+    ${nupic_src}/engine/UniformLinkPolicy.hpp
+    ${nupic_src}/engine/YAMLUtils.cpp
+    ${nupic_src}/engine/YAMLUtils.hpp
+)
+
+set(math_files
+    ${nupic_src}/math/Array2D.hpp
+    ${nupic_src}/math/ArrayAlgo.hpp
+    ${nupic_src}/math/Convolution.hpp
+    ${nupic_src}/math/DenseMatrix.hpp
+    ${nupic_src}/math/Domain.hpp
+    ${nupic_src}/math/Erosion.hpp
+    ${nupic_src}/math/Functions.hpp
+    ${nupic_src}/math/GraphAlgorithms.hpp
+    ${nupic_src}/math/Index.hpp
+    ${nupic_src}/math/Math.hpp
+    ${nupic_src}/math/NearestNeighbor.hpp
+    ${nupic_src}/math/Rotation.hpp
+    ${nupic_src}/math/SegmentMatrixAdapter.hpp
+    ${nupic_src}/math/Set.hpp
+    ${nupic_src}/math/SparseBinaryMatrix.hpp
+    ${nupic_src}/math/SparseMatrix.hpp
+    ${nupic_src}/math/SparseMatrix01.hpp
+    ${nupic_src}/math/SparseMatrixAlgorithms.cpp
+    ${nupic_src}/math/SparseMatrixAlgorithms.hpp
+    ${nupic_src}/math/SparseMatrixConnections.cpp
+    ${nupic_src}/math/SparseMatrixConnections.hpp
+    ${nupic_src}/math/SparseRLEMatrix.hpp
+    ${nupic_src}/math/SparseTensor.hpp
+    ${nupic_src}/math/StlIo.cpp
+    ${nupic_src}/math/StlIo.hpp
+    ${nupic_src}/math/Topology.cpp
+    ${nupic_src}/math/Topology.hpp
+    ${nupic_src}/math/Types.hpp
+    ${nupic_src}/math/Utils.hpp
+)
+
+set(ntypes_files
+    ${nupic_src}/ntypes/Array.hpp
+    ${nupic_src}/ntypes/ArrayBase.cpp
+    ${nupic_src}/ntypes/ArrayBase.hpp
+    ${nupic_src}/ntypes/ArrayRef.hpp
+    ${nupic_src}/ntypes/Buffer.cpp
+    ${nupic_src}/ntypes/Buffer.hpp
+    ${nupic_src}/ntypes/BundleIO.cpp
+    ${nupic_src}/ntypes/BundleIO.hpp
+    ${nupic_src}/ntypes/Collection.cpp
+    ${nupic_src}/ntypes/Collection.hpp
+    ${nupic_src}/ntypes/Dimensions.cpp
+    ${nupic_src}/ntypes/Dimensions.hpp
+    ${nupic_src}/ntypes/MemParser.cpp
+    ${nupic_src}/ntypes/MemParser.hpp
+    ${nupic_src}/ntypes/MemStream.hpp
+    ${nupic_src}/ntypes/NodeSet.hpp
+    ${nupic_src}/ntypes/ObjectModel.h
+    ${nupic_src}/ntypes/ObjectModel.hpp
+    ${nupic_src}/ntypes/Scalar.cpp
+    ${nupic_src}/ntypes/Scalar.hpp
+    ${nupic_src}/ntypes/Value.cpp
+    ${nupic_src}/ntypes/Value.hpp
+)
+
+set(os_files
+    ${nupic_src}/os/Directory.cpp
+    ${nupic_src}/os/Directory.hpp
+    ${nupic_src}/os/DynamicLibrary.cpp
+    ${nupic_src}/os/DynamicLibrary.hpp
+    ${nupic_src}/os/Env.cpp
+    ${nupic_src}/os/Env.hpp
+    ${nupic_src}/os/FStream.cpp
+    ${nupic_src}/os/FStream.hpp
+    ${nupic_src}/os/OS.cpp
+    ${nupic_src}/os/OS.hpp
+    ${nupic_src}/os/OSUnix.cpp
+    ${nupic_src}/os/OSWin.cpp
+    ${nupic_src}/os/Path.cpp
+    ${nupic_src}/os/Path.hpp
+    ${nupic_src}/os/Regex.cpp
+    ${nupic_src}/os/Regex.hpp
+    ${nupic_src}/os/Timer.cpp
+    ${nupic_src}/os/Timer.hpp    
+)
+
+set(regions_files
+    ${nupic_src}/regions/VectorFile.cpp
+    ${nupic_src}/regions/VectorFile.hpp
+    ${nupic_src}/regions/VectorFileEffector.cpp
+    ${nupic_src}/regions/VectorFileEffector.hpp
+    ${nupic_src}/regions/VectorFileSensor.cpp
+    ${nupic_src}/regions/VectorFileSensor.hpp    
+)
+
+set(types_files
+    ${nupic_src}/types/BasicType.cpp
+    ${nupic_src}/types/BasicType.hpp
+    ${nupic_src}/types/Exception.hpp
+    ${nupic_src}/types/Fraction.cpp
+    ${nupic_src}/types/Fraction.hpp
+    ${nupic_src}/types/ptr_types.hpp
+    ${nupic_src}/types/Types.h
+    ${nupic_src}/types/Types.hpp
+)
+
+set(utils_files
+    ${nupic_src}/utils/GroupBy.hpp
+    ${nupic_src}/utils/Log.hpp
+    ${nupic_src}/utils/LoggingException.cpp
+    ${nupic_src}/utils/LoggingException.hpp
+    ${nupic_src}/utils/LogItem.cpp
+    ${nupic_src}/utils/LogItem.hpp
+    ${nupic_src}/utils/MovingAverage.cpp
+    ${nupic_src}/utils/MovingAverage.hpp
+    ${nupic_src}/utils/Random.cpp
+    ${nupic_src}/utils/Random.hpp
+    ${nupic_src}/utils/StringUtils.cpp
+    ${nupic_src}/utils/StringUtils.hpp
+    ${nupic_src}/utils/TRandom.cpp
+    ${nupic_src}/utils/TRandom.hpp
+    ${nupic_src}/utils/Watcher.cpp
+    ${nupic_src}/utils/Watcher.hpp
+)
+
+#set up file tabs in Visual Studio
+source_group("algorithm" FILES ${algorithm_files})
+source_group("encoders" FILES ${encoders_files})
+source_group("engine" FILES ${engine_files})
+source_group("math" FILES ${math_files})
+source_group("ntypes" FILES ${ntypes_files})
+source_group("os" FILES ${os_files})
+source_group("regions" FILES ${regions_files})
+source_group("types" FILES ${types_files})
+source_group("utils" FILES ${utils_files})
+
+########################################################
+# Lib
+add_library(${lib_name} STATIC 
+    ${algorithm_files} 
+    ${encoders_files} 
+    ${engine_files} 
+    ${math_files} 
+    ${ntypes_files} 
+    ${os_files} 
+    ${regions_files} 
+    ${types_files} 
+    ${utils_files} 
+)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_definitions(${lib_name} PRIVATE ${COMMON_COMPILER_DEFINITIONS})
+target_compile_options(${lib_name} PUBLIC ${INTERNAL_CXX_FLAGS})
+
+
+#########################################################
+# Test
+set(test_src ${CMAKE_SOURCE_DIR}/src/test)
+
+set(unit_test_files
+    ${test_src}/main.cpp
+)
+
+set(test_app unit_test)
+
+add_executable( ${test_app}
+    ${unit_test_files}
+)
+target_link_libraries(${test_app} PRIVATE 
+	${lib_name}
+	Boost::filesystem
+    yaml-cpp::yaml-cpp
+    GTest::main
+    ZLIB::zlib
+)
+target_compile_definitions(${test_app} PRIVATE ${COMMON_COMPILER_DEFINITIONS})
+target_compile_options(${test_app} PUBLIC "${INTERNAL_CXX_FLAGS}")
+set_target_properties(${test_app} PROPERTIES LINK_FLAGS "${INTERNAL_LINKER_FLAGS}")
+add_dependencies(${test_app} ${lib_name})
+
+### Run Tests ###
+enable_testing()
+
+add_test(NAME ${test_app} COMMAND ${test_app})
+
+
+##########################################################
+#
+# Install core library into CMAKE_INSTALL_PREFIX
+#
+install(TARGETS
+        ${lib_name} ${test_app}
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib)
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/nupic DESTINATION include
+	  MESSAGE_NEVER
+	  FILES_MATCHING PATTERN "*.h*"
+	  PATTERN "*.hpp.in" EXCLUDE)
+	  
+        
+#
+# `make package` results in
+# nupic_core-${NUPIC_CORE_VERSION}-${PLATFORM}${BITNESS}${PLATFORM_SUFFIX}.tar.gz binary release
+#
+set(CPACK_GENERATOR "TGZ")
+set(CPACK_PACKAGE_FILE_NAME "${project_name}-${NUPIC_CORE_VERSION}-${PLATFORM}${BITNESS}${PLATFORM_SUFFIX}")
+include(CPack)
+

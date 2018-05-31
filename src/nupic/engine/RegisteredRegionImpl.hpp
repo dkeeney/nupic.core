@@ -71,9 +71,9 @@ namespace nupic
         return new T(params, region);
       }
 
-      virtual RegionImpl* deserializeRegionImpl( BundleIO& params, Region *region) override
+      virtual RegionImpl* deserializeRegionImpl( BundleIO& bundle, Region *region) override
       {
-        return new T(params, region);
+        return new T(bundle, region);
       }
 
       virtual Spec* createSpec() override

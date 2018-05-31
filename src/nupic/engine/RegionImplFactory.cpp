@@ -33,19 +33,24 @@
 #include <nupic/os/Env.hpp>
 #include <nupic/ntypes/Value.hpp>
 #include <nupic/ntypes/BundleIO.hpp>
-#include <nupic/encoders/ScalarSensor.hpp>
 #include <nupic/engine/YAMLUtils.hpp>
-#include <nupic/engine/TestNode.hpp>
-#include <nupic/regions/VectorFileEffector.hpp>
-#include <nupic/regions/VectorFileSensor.hpp>
 #include <nupic/utils/Log.hpp>
 #include <nupic/utils/StringUtils.hpp>
+
+// Built-in Plugins
+#include <nupic/engine/TestNode.hpp>
+#include <nupic/encoders/ScalarSensor.hpp>
+#include <nupic/regions/VectorFileEffector.hpp>
+#include <nupic/regions/VectorFileSensor.hpp>
+#include <nupic/regions/SPregion.hpp>
+
 
 
 
  // from http://stackoverflow.com/a/9096509/1781435
 #define stringify(x)  #x
 #define expand_and_stringify(x) stringify(x)
+
 
 namespace nupic
 {
@@ -90,6 +95,7 @@ namespace nupic
       cppRegions["TestNode"] = new RegisteredRegionImpl<TestNode>();
       cppRegions["VectorFileEffector"] = new RegisteredRegionImpl<VectorFileEffector>();
       cppRegions["VectorFileSensor"] = new RegisteredRegionImpl<VectorFileSensor>();
+      cppRegions["SPRegion"] = new RegisteredRegionImpl<SPRegion>();
 
       initializedRegions = true;
     }

@@ -597,7 +597,7 @@ void UniformLinkPolicy::setSrcDimensions(Dimensions& specifiedDims)
         if(workingParams_.span[i].getNumerator() == 0)
         {
           Fraction validityCheck =
-            (Fraction(dims[i]) +
+            (Fraction((int)dims[i]) +
              workingParams_.overhang[i] * 2 -
              workingParams_.rfSize[i]) % (workingParams_.rfSize[i] -
                                           workingParams_.rfOverlap[i]);
@@ -620,7 +620,7 @@ void UniformLinkPolicy::setSrcDimensions(Dimensions& specifiedDims)
               "amount added by successive receptive fields.";
           }
 
-          validityCheck = workingParams_.rfSize[i] * elementCount_;
+          validityCheck = workingParams_.rfSize[i] * (int)elementCount_;
 
           if(!validityCheck.isNaturalNumber())
           {
@@ -638,8 +638,7 @@ void UniformLinkPolicy::setSrcDimensions(Dimensions& specifiedDims)
 
           // R_d,i = (R_s,i + 2 * H_i - V_i)/(F_s,i - V_i)
           Fraction inducedDim = (Fraction(dims[i]) +
-                                 workingParams_.overhang[i] * 2 -
-                                 workingParams_.rfOverlap[i]) /
+             workingParams_.overhang[i] * 2 - workingParams_.rfOverlap[i]) /
             (workingParams_.rfSize[i] -
              workingParams_.rfOverlap[i]);
 

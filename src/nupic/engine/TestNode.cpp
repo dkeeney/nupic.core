@@ -57,7 +57,7 @@ namespace nupic
     uint32Param_ = params.getScalarT<UInt32>("uint32Param", 33);
     int64Param_ = params.getScalarT<Int64>("int64Param", 64);
     uint64Param_ = params.getScalarT<UInt64>("uint64Param", 65);
-    real32Param_ = params.getScalarT<Real32>("real32Param", 32.1);
+    real32Param_ = params.getScalarT<Real32>("real32Param", 32.1f);
     real64Param_ = params.getScalarT<Real64>("real64Param", 64.1);
     boolParam_ = params.getScalarT<bool>("boolParam", false);
 
@@ -149,6 +149,11 @@ namespace nupic
   TestNode::createSpec()
   {
     auto ns = new Spec;
+
+    ns->description = "TestNode. Used as a plain simple plugin Region for unit tests only. "
+      "This is not useful for any real applicaton.";
+    ns->singleNodeOnly = false;
+
 
     /* ---- parameters ------ */
 

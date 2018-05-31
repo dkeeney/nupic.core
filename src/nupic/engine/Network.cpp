@@ -109,7 +109,7 @@ Network::~Network()
 
 Region_Ptr_t Network::addRegion(const std::string& name,
                            const std::string& nodeType,
-                           const std::string& nodeParams)
+                           const std::string& nodeParams) // yaml formatted parameters as overrides to Spec parameters.
 {
   if (regions_.contains(name))
     NTA_THROW << "Region with name '" << name << "' already exists in network";
@@ -124,7 +124,7 @@ Region_Ptr_t Network::addRegion(const std::string& name,
 
 void Network::setDefaultPhase_(Region_Ptr_t region)
 {
-  UInt32 newphase = phaseInfo_.size();
+  UInt32 newphase = (UInt32)phaseInfo_.size();
   std::set<UInt32> phases;
   phases.insert(newphase);
   setPhases_(region, phases);
@@ -166,7 +166,7 @@ Network::setPhases_(Region_Ptr_t r, std::set<UInt32>& phases)
     NTA_THROW << "Attempt to set empty phase list for region " << r->getName();
 
   UInt32 maxNewPhase = *(phases.rbegin());
-  UInt32 nextPhase = phaseInfo_.size();
+  UInt32 nextPhase = (UInt32)phaseInfo_.size();
   if (maxNewPhase >= nextPhase)
   {
     // It is very unlikely that someone would add a region
@@ -262,6 +262,8 @@ Network::removeRegion(const std::string& name)
 
   // Must uninitialize the region prior to removing incoming links
   r->uninitialize();
+  r->removeAllIncomingLinks();
+
   regions_.remove(name);
 
   auto phase = phaseInfo_.begin();
@@ -663,8 +665,8 @@ void Network::saveToBundle(const std::string& name)
   if (! StringUtils::endsWith(name, ".nta"))
     NTA_THROW << "saveToBundle: bundle extension must be \".nta\"";
 
-  std::string fullPath = Path::normalize(Path::makeAbsolute(name));
-  std::string networkStructureFilename = Path::join(fullPath, "network.yaml");
+  std::string fullPath = Path::makeAbsolute(name);
+  std::string networkStructureFilename = fullPath + Path::sep + "network.yaml";
 
 
   // Only overwrite an existing path if it appears to be a network bundle
@@ -678,7 +680,7 @@ void Network::saveToBundle(const std::string& name)
     Directory::removeTree(fullPath);
   }
 
-  Directory::create(fullPath);
+  Directory::create(fullPath, false, true);
 
   {
     YAML::Emitter out;
@@ -725,14 +727,7 @@ void Network::saveToBundle(const std::string& name)
         for (const auto & links_link : links)
         {
           auto l = links_link;
-          out << YAML::BeginMap;
-          out << YAML::Key << "type" << YAML::Value << l->getLinkType();
-          out << YAML::Key << "params" << YAML::Value << l->getLinkParams();
-          out << YAML::Key << "srcRegion" << YAML::Value << l->getSrcRegionName();
-          out << YAML::Key << "srcOutput" << YAML::Value << l->getSrcOutputName();
-          out << YAML::Key << "destRegion" << YAML::Value << l->getDestRegionName();
-          out << YAML::Key << "destInput" << YAML::Value << l->getDestInputName();
-          out << YAML::EndMap;
+          l->serialize(&out);
         }
 
       }
@@ -778,12 +773,12 @@ void Network::loadFromBundle(const std::string& name)
   if (! StringUtils::endsWith(name, ".nta"))
     NTA_THROW << "loadFromBundle: bundle extension must be \".nta\"";
 
-  const std::string fullPath = Path::normalize(Path::makeAbsolute(name));
+  const std::string fullPath = Path::makeAbsolute(name);
 
   if (! Path::exists(fullPath))
     NTA_THROW << "Path " << fullPath << " does not exist";
 
-  const std::string networkStructureFilename = Path::join(fullPath, "network.yaml");
+  const std::string networkStructureFilename = fullPath + Path::sep + "network.yaml";
   const YAML::Node doc = YAML::LoadFile(networkStructureFilename);
 
   if (doc.Type() != YAML::NodeType::Map)
@@ -818,11 +813,16 @@ void Network::loadFromBundle(const std::string& name)
 
     // 1. name
     node = region["name"];
+    if (!node.IsScalar())
+      NTA_THROW << "Invalid network structure file, does not have a 'name' field.";
     const std::string name  = node.as<std::string>();
 
     // 2. nodeType
     node = region["nodeType"];
-    const std::string nodeType = node.as<std::string>();;
+    if (!node.IsScalar())
+      NTA_THROW << "Invalid network structure file, does not have a 'nodeType' field.";
+    const std::string nodeType = node.as<std::string>();
+    ;
 
     // 3. dimensions
     node = region["dimensions"];
@@ -849,11 +849,9 @@ void Network::loadFromBundle(const std::string& name)
       phases.insert(val);
     }
 
+
     // 5. label
     node = region["label"];
-    if (node.size() == 0)
-      NTA_THROW << "Invalid network structure file -- region"
-                << name << "has no label";
     const std::string label = node.as<std::string>();
 
     Region_Ptr_t r = addRegionFromBundle(name, nodeType, dimensions, fullPath, label);
@@ -871,71 +869,41 @@ void Network::loadFromBundle(const std::string& name)
 
   for (const auto & link : links)
   {
-    // Each link is a map -- extract the 5 values in the map
-    if (link.Type() != YAML::NodeType::Map)
-      NTA_THROW << "Invalid network structure file -- bad link (not a map)";
+    // Create the link
+    auto newLink = std::make_shared<Link>();
+    newLink->deserialize(link);
 
-    if (link.size() != 6)
-      NTA_THROW << "Invalid network structure file -- bad link (wrong size)";
-
-    // 1. type
-    node = link["type"];
-    if (node.size() == 0)
-      NTA_THROW << "Invalid network structure file -- link does not have a type";
-    const std::string linkType = node.as<std::string>();
-
-
-    // 2. params
-    node = link["params"];
-    if (node.size() == 0)
-      NTA_THROW << "Invalid network structure file -- link does not have params";
-    const std::string params = node.as<std::string>();
-
-    // 3. srcRegion (name)
-    node = link["srcRegion"];
-    if (node.size() == 0)
-      NTA_THROW << "Invalid network structure file -- link does not have a srcRegion";
-    const std::string srcRegionName = node.as<std::string>();
-
-
-    // 4. srcOutput
-    node = link["srcOutput"];
-    if (node.size() == 0)
-      NTA_THROW << "Invalid network structure file -- link does not have a srcOutput";
-    const std::string srcOutputName = node.as<std::string>();
-
-    // 5. destRegion
-    node = link["destRegion"];
-    if (node.size() == 0)
-      NTA_THROW << "Invalid network structure file -- link does not have a destRegion";
-    const std::string destRegionName = node.as<std::string>();
-
-    // 6. destInput
-    node = link["destInput"];
-    if (node.size() == 0)
-      NTA_THROW << "Invalid network structure file -- link does not have a destInput";
-    const std::string destInputName = node.as<std::string>();
-
+    const std::string srcRegionName = newLink->getSrcRegionName();
     if (!regions_.contains(srcRegionName))
-      NTA_THROW << "Invalid network structure file -- link specifies source region '" << srcRegionName << "' but no such region exists";
+      NTA_THROW
+          << "Invalid network structure file -- link specifies source region '"
+          << srcRegionName << "' but no such region exists";
     Region_Ptr_t srcRegion = regions_.getByName(srcRegionName);
 
+    const std::string destRegionName = newLink->getDestRegionName();
     if (!regions_.contains(destRegionName))
-      NTA_THROW << "Invalid network structure file -- link specifies destination region '" << destRegionName << "' but no such region exists";
+      NTA_THROW << "Invalid network structure file -- link specifies "
+                   "destination region '"
+                << destRegionName << "' but no such region exists";
     Region_Ptr_t destRegion = regions_.getByName(destRegionName);
 
-    Output* srcOutput = srcRegion->getOutput(srcOutputName);
+    const std::string srcOutputName = newLink->getSrcOutputName();
+    Output *srcOutput = srcRegion->getOutput(srcOutputName);
     if (srcOutput == nullptr)
-      NTA_THROW << "Invalid network structure file -- link specifies source output '" << srcOutputName << "' but no such name exists";
+      NTA_THROW
+          << "Invalid network structure file -- link specifies source output '"
+          << srcOutputName << "' but no such name exists";
 
-    Input* destInput = destRegion->getInput(destInputName);
+    const std::string destInputName = newLink->getDestInputName();
+    Input *destInput = destRegion->getInput(destInputName);
     if (destInput == nullptr)
-      NTA_THROW << "Invalid network structure file -- link specifies destination input '" << destInputName << "' but no such name exists";
-
-    // Create the link itself
-    auto newLink = std::make_shared<Link>(linkType, params, srcOutput, destInput, 0/*propagationDelay*/);
+      NTA_THROW << "Invalid network structure file -- link specifies "
+                   "destination input '"
+                << destInputName << "' but no such name exists";
 
     destInput->addLink(newLink, srcOutput);
+
+    // Note: the links will not be initialized. So must call net.initialize() after load().
   } // links
 
 }

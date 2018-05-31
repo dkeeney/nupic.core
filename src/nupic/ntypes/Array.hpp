@@ -33,24 +33,29 @@
 
 #include <nupic/ntypes/ArrayBase.hpp>
 #include <nupic/utils/Log.hpp>
+#include <nupic/types/BasicType.hpp>
 
 namespace nupic
 {
   class Array : public ArrayBase 
   {
   public:
-    Array(NTA_BasicType type, void * buffer, size_t count) :
-      ArrayBase(type, buffer, count)
-    {
-    }
-    
-    explicit Array(NTA_BasicType type) : ArrayBase(type)
-    {
-    }
+    // default constructor
+    Array() : ArrayBase(NTA_BasicType_Int32) {}
 
-    //Array(const Array & other) : ArrayBase(other)
-    //{
-    //}
+    Array(NTA_BasicType type, void * buffer, size_t count) :
+      ArrayBase(type, buffer, count) {}
+    
+    explicit Array(NTA_BasicType type) : ArrayBase(type) {}
+
+    // copy constructor  (deep copy)
+    Array(const Array & other) : ArrayBase(other.getType())
+    {
+      if (other.getCount() > 0) {
+        allocateBuffer(other.getCount());
+        memcpy(buffer_, other.getBuffer(), count_ * BasicType::getSize(type_));
+      }
+    }
 
     void invariant()
     {

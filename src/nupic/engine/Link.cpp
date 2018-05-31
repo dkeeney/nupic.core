@@ -35,6 +35,7 @@
 #include <nupic/types/BasicType.hpp>
 
 
+
 // Set this to true when debugging to enable handy debug-level logging of data
 // moving through the links, including the delayed link transitions.
 #define _LINK_DEBUG false
@@ -392,9 +393,12 @@ Link::compute()
 
   const Array & dest = dest_->getData();
 
-  size_t typeSize = BasicType::getSize(src.getType());
+  NTA_BasicType srctype = src.getType();
+  size_t typeSize = BasicType::getSize(srctype);
   size_t srcSize = src.getCount() * typeSize;
   size_t destByteOffset = destOffset_ * typeSize;
+  NTA_BasicType dsttype = dest.getType();
+
 
   if (_LINK_DEBUG)
   {
@@ -405,6 +409,8 @@ Link::compute()
   }
 
   ::memcpy((char*)(dest.getBuffer()) + destByteOffset, src.getBuffer(), srcSize);
+
+
 }
 
 
@@ -469,6 +475,148 @@ void Link::shiftBufferedData()
   }
 }
 
+void Link::serialize(YAML::Emitter* out)
+{
+  *out << YAML::BeginMap;
+  *out << YAML::Key << "type" << YAML::Value << getLinkType();
+  *out << YAML::Key << "params" << YAML::Value << getLinkParams();
+  *out << YAML::Key << "srcRegion" << YAML::Value << getSrcRegionName();
+  *out << YAML::Key << "srcOutput" << YAML::Value << getSrcOutputName();
+  *out << YAML::Key << "destRegion" << YAML::Value << getDestRegionName();
+  *out << YAML::Key << "destInput" << YAML::Value << getDestInputName();
+  *out << YAML::Key << "propagationDelay" << YAML::Value << propagationDelay_;
+  if (propagationDelay_ > 0) {
+    // we need to capture the circularBuffer used for propagationDelay
+    size_t count = srcBuffer_[0].getCount();
+    NTA_BasicType type = srcBuffer_[0].getType();
+    *out << YAML::Key << "width" << YAML::Value << count;
+//    *out << YAML::Key << "type" << YAML::Value << type;
+    *out << YAML::Key << "circularBuffer" << YAML::BeginSeq;
+    boost::circular_buffer<Array>::iterator itr;
+    for (auto itr = srcBuffer_.begin(); itr != srcBuffer_.end(); itr++) {
+      Array &buf = *itr;
+      void *ptr = buf.getBuffer();
+      *out << YAML::BeginSeq;
+      for (size_t i = 0; i < count; i++) {
+        switch (type)
+        { 
+        case NTA_BasicType_Int32:  
+          *out << ((Int32 *)ptr)[i];  
+          break;
+        case NTA_BasicType_Int64:
+          *out << ((Int64 *)ptr)[i];
+          break;
+        case NTA_BasicType_UInt32:
+          *out << ((UInt32 *)ptr)[i];
+          break;
+        case NTA_BasicType_UInt64:
+          *out << ((UInt64 *)ptr)[i];
+          break;
+        case NTA_BasicType_Real32:
+          *out << ((Real32 *)ptr)[i];
+          break;
+        case NTA_BasicType_Real64:
+          *out << ((Real64 *)ptr)[i];
+          break;
+        default:
+          NTA_THROW << "Unexpected data type in Link serialization.";
+        }
+      } // end for
+      *out << YAML::EndSeq;
+    }  // end for
+    *out << YAML::EndSeq;
+  }
+
+  *out << YAML::EndMap;
+}
+
+void Link::deserialize(const YAML::Node &link)
+{
+  // Each link is a map -- extract the 8 values in the map
+  // The "circularBuffer" element is a two dimentional array only present if propogationDelay > 0.
+  if (link.Type() != YAML::NodeType::Map)
+    NTA_THROW << "Invalid network structure file -- bad link (not a map)";
+
+  if (link.size() >= 7)
+    NTA_THROW << "Invalid network structure file -- bad link (wrong size)";
+
+  YAML::Node node;
+
+  // 1. type
+  node = link["type"];
+  if (!node.IsScalar())
+    NTA_THROW << "Invalid network structure file -- link does not have a type";
+  linkType_ = node.as<std::string>();
+
+  // 2. params
+  node = link["params"];
+  if (!node.IsScalar())
+    NTA_THROW << "Invalid network structure file -- link does not have params";
+  linkParams_ = node.as<std::string>();
+
+  // 3. srcRegion (name)
+  node = link["srcRegion"];
+  if (!node.IsScalar())
+    NTA_THROW << "Invalid network structure file -- link does not have a "
+                 "'srcRegion' field.";
+  srcRegionName_ = node.as<std::string>();
+
+  // 4. srcOutput
+  node = link["srcOutput"];
+  if (!node.IsScalar())
+    NTA_THROW << "Invalid network structure file -- link does not have a "
+                 "'srcOutput' field";
+  srcOutputName_ = node.as<std::string>();
+
+  // 5. destRegion
+  node = link["destRegion"];
+  if (!node.IsScalar())
+    NTA_THROW << "Invalid network structure file -- link does not have a "
+                 "'destRegion' field.";
+  destRegionName_ = node.as<std::string>();
+
+  // 6. destInput
+  node = link["destInput"];
+  if (!node.IsScalar())
+    NTA_THROW << "Invalid network structure file -- link does not have a "
+                 "'destInput' field.";
+  destInputName_ = node.as<std::string>();
+
+  // 7. propogationDelay (number of source buffers in the circular buffer)
+  node = link["propagationDelay"];
+  if (!node.IsScalar())
+    NTA_THROW << "Invalid network structure file -- link does not have a "
+                 "'propagationDelay' field.";
+  propagationDelay_ = node.as<size_t>();
+
+  if (propagationDelay_ > 0) {
+    if (link.size() != 10)
+      NTA_THROW << "Invalid network structure file -- bad link (wrong size)";
+
+    // 8. width   (width of buffer)
+
+    node = link["width"];
+    size_t count = node.as<size_t>();
+
+    // 9. type    (the type of data in the buffer)
+    node = link["type"];
+//    NTA_BasicType type = node.as<NTA_BasicType>();
+
+    // 10. circularBuffer  (the two dimensional buffer used for propogationDelay)
+    node = link["circularBuffer"];
+    if (!node.IsSequence())
+      NTA_THROW << "Invalid network structure file -- bad link (missing the circularBuffer's sequence)";
+
+    for (const auto &valiter : node)
+    {
+      //================= use a templated function.
+    }
+
+  }
+}
+
+
+
 
 namespace nupic
 {
@@ -481,6 +629,7 @@ namespace nupic
     f << "  <destRegion>" << link.getDestRegionName() << "</destRegion>\n";
     f << "  <srcOutput>" << link.getSrcOutputName() << "</srcOutput>\n";
     f << "  <destInput>" << link.getDestInputName() << "</destInput>\n";
+    f << "  <propagationDelay>" << link.getPropagationDelay()  << "</propagationDelay>\n";
     f << "</Link>\n";
     return f;
   }

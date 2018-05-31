@@ -120,15 +120,14 @@ set(src_common_os_libs)
 if(MSVC)
 	# on Windows using Visual Studio 2015, 2017   https://docs.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-by-category
 	# Release Compiler flags:
-	#	Common Stuff:  /permissive- /GL /W3 /Gy /Gm- /O2 /Oi /MD /EHsc /FC /nologo
-	#      Release Only:    /O2 /Oi /Gy /GL /MD
+	#	Common Stuff:  /permissive- /W3 /Gy /Gm- /O2 /Oi /MD /EHsc /FC /nologo
+	#      Release Only:    /O2 /Oi /Gy  /MD
 	#      Debug Only:       /Od /Zi /sdl /RTC1 /MDd
-	set(INTERNAL_CXX_FLAGS /permissive- /W3 /Gm- /EHsc /FC  
-							$<$<CONFIG:RELEASE>:/O2 /Oi /Gy /GL /MD> 
+	set(INTERNAL_CXX_FLAGS /permissive- /W3 /Gm- /EHsc /FC 
+							$<$<CONFIG:RELEASE>:/O2 /Oi /Gy  /GL /MD> 
 							$<$<CONFIG:DEBUG>:/Ob0 /Od /Zi /sdl /RTC1 /MDd>)
 	
-	set(COMMON_COMPILER_DEFINITIONS 
-		/D "_CONSOLE"
+	set(COMMON_COMPILER_DEFINITIONS 	/D "_CONSOLE"
 		/D "_MBCS"
 		/D "NTA_OS_WINDOWS"
 		/D "NTA_COMPILER_MSVC"
@@ -144,9 +143,6 @@ if(MSVC)
 		/D "NOGDI"
 		)
 	# Note: /DEBUG or /NDEBUG are added by default.
-	#
-	#	for .pyd compiles, include the following
-	#	 /D "_USRDLL" /D "_WINDLL" /D "_MBCS" /D "NUPICPYTHONALGORITHMS_EXPORTS"
 		
 	# linker flags
 	if("${BITNESS}" STREQUAL "32")
@@ -154,10 +150,9 @@ if(MSVC)
 	else()
 		set(machine "/MACHINE:X${BITNESS}")
 	endif()
-	set(INTERNAL_LINKER_FLAGS "${INTERNAL_LINKER_FLAGS} ${machine} /LTCG:incremental /NOLOGO")
+	set(INTERNAL_LINKER_FLAGS "${machine} /NOLOGO /LTCG")
 	# default flags: /MANIFEST /DYNAMICBASE /NXCOMPAT  /OPT:REF(for non-debug builds)  /OPT:ICF /INCREMENTAL:NO /ERRORREPORT:PROMPT  
 	#                        /PGD  /SUBSYSTEM /TLBID:1 /MANIFESTUAC:"level='asInvoker' uiAccess='false'" 
-	# for .pyd builds, add /DLL
 	
 	# OS libraries
 	set(src_common_os_libs  "kernel32.lib" 

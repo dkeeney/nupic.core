@@ -187,9 +187,6 @@ Input::evaluateLinks()
   std::vector<Link_Ptr_t>::iterator l;
   for (l = links_.begin(); l != links_.end(); l++)
   {
-    Region& srcRegion = (*l)->getSrc().getRegion();
-    Region& destRegion = (*l)->getDest().getRegion();
-
     /**
      * The link and region need to be consistent at both
      * ends of the link.
@@ -200,14 +197,22 @@ Input::evaluateLinks()
      * each of the six possible cases of Region/Link specification.
      */
 
-    /* ------ look at the source side of the link ------- */
+
+    Region& srcRegion = (*l)->getSrc().getRegion();
+    Region& destRegion = (*l)->getDest().getRegion();
 
     Dimensions srcRegionDims = srcRegion.getDimensions();
     Dimensions srcLinkDims = (*l)->getSrcDimensions();
 
-    /* source region dimensions are unspecified */
+    /* ------ look at the source side of the link ------- */
+
     if (srcRegionDims.isUnspecified())
     {
+      /* source region dimensions are unspecified */
+      if (srcLinkDims.isUnspecified())
+      {
+        // Neither are specified so there is nothing we can do.
+      }
       if (srcLinkDims.isUnspecified())
       {
         // 1. link cares about src dimensions but they aren't set
@@ -337,9 +342,9 @@ Input::evaluateLinks()
     // except for the case where the destination region dims are specified and the
     // link dims are unspecified -- see comment below.
 
-    /* dest region dimensions are unspecified */
     if (destRegionDims.isUnspecified())
     {
+      /* dest region dimensions are unspecified */
       if (destLinkDims.isUnspecified())
       {
         // 1. link cares about dest dimensions but they aren't set
@@ -372,7 +377,7 @@ Input::evaluateLinks()
         }
       }
     } else {
-      /* dest region dimensions are specified but src region dims are not */
+      /* dest region dimensions are specified */
       if (destLinkDims.isDontcare())
       {
         // 4. Link doesn't care. We don't need to do anything.
@@ -449,7 +454,7 @@ Input::evaluateLinks()
         if (destRegionDims != destLinkDims)
         {
           Dimensions oneD;
-          oneD.push_back(1);
+          oneD.push_back(1);  // means don't care
 
           if((*l)->getDest().isRegionLevel())
           {

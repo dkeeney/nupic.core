@@ -78,6 +78,10 @@ void VectorFileEffector::initialize()
   {
     NTA_THROW << "VectorFileEffector::init - no input found\n";
   }
+
+  if (!filename_.empty())
+    openFile(filename_);
+
 }
 
 
@@ -87,6 +91,8 @@ void VectorFileEffector::compute()
   // It's not necessarily an error to have no inputs. In this case we just return
   if (dataIn_.getCount() == 0)
     return;
+
+
 
   // Don't write if there is no open file.
   if (outFile_ == nullptr)

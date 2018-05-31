@@ -92,6 +92,12 @@ ArrayBase::allocateBuffer(size_t count)
 }
 
 void
+ArrayBase::zeroBuffer()
+{
+  memset(buffer_, 0, count_ * BasicType::getSize(type_));
+}
+
+void
 ArrayBase::setBuffer(void *buffer, size_t count)
 {
   if (buffer_ != nullptr)

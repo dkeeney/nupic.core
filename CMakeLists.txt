@@ -18,7 +18,7 @@
 #
 # http://numenta.org/licenses/
 # -----------------------------------------------------------------------------
-# Minimal CMake configuration for nupic.base
+# Minimal CMake configuration for nupic.base 
 #
 
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
@@ -52,8 +52,8 @@ endif()
 # Download and install the dependencies
 ##########################################
 # Boost 
-hunter_add_package(Boost COMPONENTS filesystem)
-find_package(Boost CONFIG REQUIRED filesystem)
+hunter_add_package(Boost COMPONENTS system filesystem)
+find_package(Boost CONFIG REQUIRED system filesystem)
 include_directories(${Boost_INCLUDE_DIRS})
 message(STATUS "Boost_INCLUDE_DIRS = ${Boost_INCLUDE_DIRS}")
 
@@ -61,7 +61,6 @@ message(STATUS "Boost_INCLUDE_DIRS = ${Boost_INCLUDE_DIRS}")
 hunter_add_package(ZLIB)
 find_package(ZLIB CONFIG REQUIRED)
 include_directories(${ZLIB_INCLUDE_DIRS})
-message(STATUS "ZLIB_INCLUDE_DIRS = ${ZLIB_INCLUDE_DIRS}")
 
 # yaml-cpps
 hunter_add_package(yaml-cpp)
@@ -263,7 +262,9 @@ set(regions_files
     ${nupic_src}/regions/VectorFileEffector.cpp
     ${nupic_src}/regions/VectorFileEffector.hpp
     ${nupic_src}/regions/VectorFileSensor.cpp
-    ${nupic_src}/regions/VectorFileSensor.hpp    
+    ${nupic_src}/regions/VectorFileSensor.hpp   
+    ${nupic_src}/regions/SPRegion.cpp 
+    ${nupic_src}/regions/SPRegion.hpp 
 )
 
 set(types_files
@@ -327,33 +328,8 @@ target_compile_options(${lib_name} PUBLIC ${INTERNAL_CXX_FLAGS})
 
 #########################################################
 # Test
-set(test_src ${CMAKE_SOURCE_DIR}/src/test)
-
-set(unit_test_files
-    ${test_src}/main.cpp
-)
-
-set(test_app unit_test)
-
-add_executable( ${test_app}
-    ${unit_test_files}
-)
-target_link_libraries(${test_app} PRIVATE 
-	${lib_name}
-	Boost::filesystem
-    yaml-cpp::yaml-cpp
-    GTest::main
-    ZLIB::zlib
-)
-target_compile_definitions(${test_app} PRIVATE ${COMMON_COMPILER_DEFINITIONS})
-target_compile_options(${test_app} PUBLIC "${INTERNAL_CXX_FLAGS}")
-set_target_properties(${test_app} PROPERTIES LINK_FLAGS "${INTERNAL_LINKER_FLAGS}")
-add_dependencies(${test_app} ${lib_name})
-
-### Run Tests ###
-enable_testing()
-
-add_test(NAME ${test_app} COMMAND ${test_app})
+# The tests were placed in a separate file to avoid clutting up this file.
+include(NupicCoreTests.cmake)
 
 
 ##########################################################
@@ -380,3 +356,8 @@ set(CPACK_GENERATOR "TGZ")
 set(CPACK_PACKAGE_FILE_NAME "${project_name}-${NUPIC_CORE_VERSION}-${PLATFORM}${BITNESS}${PLATFORM_SUFFIX}")
 include(CPack)
 
+##########################################################
+#  Interfaces
+#
+# add_subdirectory(src/python)        #Runs python interface build
+# add_subdirectory(src/csharp)        #Runs CSharp interface build

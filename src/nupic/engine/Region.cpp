@@ -71,7 +71,7 @@ namespace nupic
     // the RegionImpl only supports a single node, we
     // can immediately set the dimensions.
     if (spec_->singleNodeOnly)
-      dims_.push_back(1);
+      dims_.push_back(1);  // means 'don't care'
     // else dims_ = []
 
     impl_ = factory.createRegionImpl(nodeType, nodeParams, this);
@@ -162,8 +162,11 @@ namespace nupic
 
   Region::~Region()
   {
-    // If there are any links connected to our outputs, this will fail.
-    // We should catch this error in the Network class and give the
+    if (initialized_)
+      uninitialize();
+
+    // If there are any links connected to our outputs, this should fail.
+    // We catch this error in the Network class and give the
     // user a good error message (regions may be removed either in
     // Network::removeRegion or Network::~Network())
     for (auto & elem : outputs_)
@@ -171,12 +174,14 @@ namespace nupic
       delete elem.second;
       elem.second = nullptr;
     }
+    outputs_.clear();
 
     for (auto & elem : inputs_)
     {
-      delete elem.second;
+      delete elem.second;  // This is an Input object. Its destructor deletes the links.
       elem.second = nullptr;
     }
+    inputs_.clear();
 
     delete impl_;
     delete enabledNodes_;
@@ -362,7 +367,7 @@ namespace nupic
     // Some outputs are optional. These outputs will have 0 elementCount in the node
     // spec and also return 0 from impl->getNodeOutputElementCount(). These outputs still
     // appear in the output map, but with an array size of 0.
-
+    // All other outputs we initialize to size determined by spec or by impl.
 
     for (auto & elem : outputs_)
     {

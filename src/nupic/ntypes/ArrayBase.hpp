@@ -78,6 +78,13 @@ namespace nupic
     void
     allocateBuffer(size_t count);
 
+    /**
+    * Ask ArrayBase to zero fill its buffer
+    */
+    void
+    zeroBuffer();
+
+
     void
     setBuffer(void *buffer, size_t count);
 

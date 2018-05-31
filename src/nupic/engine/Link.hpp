@@ -30,6 +30,8 @@
 #include <string>
 
 #include <boost/circular_buffer.hpp>
+#include <yaml-cpp/yaml.h>
+
 
 #include <nupic/engine/LinkPolicy.hpp>
 #include <nupic/engine/Input.hpp> // needed for splitter map
@@ -115,8 +117,10 @@ namespace nupic
      * @endinternal
      *
      */
-    Link(const std::string& linkType, const std::string& linkParams,
-         const std::string& srcRegionName, const std::string& destRegionName,
+    Link(const std::string& linkType, 
+         const std::string& linkParams,
+         const std::string& srcRegionName, 
+         const std::string& destRegionName,
          const std::string& srcOutputName="",
          const std::string& destInputName="",
          const size_t propagationDelay=0);
@@ -269,6 +273,14 @@ namespace nupic
     const std::string& getDestInputName() const;
 
     /**
+     * Get the propogation Delay.
+     *
+     * @returns
+     *         The propogation Delay.  
+     */
+    const size_t getPropagationDelay() const { return propagationDelay_; }
+
+    /**
      * @}
      *
      * @name Misc
@@ -389,14 +401,24 @@ namespace nupic
     const std::string toString() const;
 
     /**
-     * Serialize the link.
+     * Serialize the link to text.
      *
      * @param f
-     *            The output stream being serialized to
+     *            The output stream being serialized to stream
      * @param link
      *            The Link being serialized
      */
     friend std::ostream& operator<<(std::ostream& f, const Link& link);
+
+    /**
+     * Serialize the link to YAML.
+     *
+     * @param out
+     *            The YAML Emitter to encode into.
+     */
+    void serialize(YAML::Emitter* out);
+    void deserialize(const YAML::Node& link);
+
 
   private:
     // common initialization for the two constructors.

@@ -114,16 +114,6 @@ namespace nupic
     void
     setDimensions(Dimensions & dimensions);
 
-    /**
-     * @}
-     *
-     * @name Element interface methods
-     *
-     * @todo What does "Element interface methods" mean here?
-     *
-     * @{
-     *
-     */
 
     /**
      * Get the type of the region.
@@ -476,6 +466,7 @@ namespace nupic
      */
 
     /**
+     * Called by Network:: on each iteration just before calling Region::compute()
      * Copies data into the inputs of this region, using
      * the links that are attached to each input.
      */

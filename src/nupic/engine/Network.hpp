@@ -276,13 +276,13 @@ namespace nupic
      */
     auto getMinPhase() const
     {
-        UInt32 i = 0;
+        size_t i = 0;
         for (; i < phaseInfo_.size(); i++)
         {
             if (!phaseInfo_[i].empty())
                 break;
         }
-        return i;
+        return (UInt32)i;
     }
 
     /**
@@ -298,9 +298,9 @@ namespace nupic
         */
 
         if (phaseInfo_.empty())
-            return (std::uint64_t) 0;
+            return (UInt32) 0;
 
-        return phaseInfo_.size() - 1;
+        return (UInt32)(phaseInfo_.size() - 1);
     }
 
     /**

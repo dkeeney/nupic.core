@@ -86,8 +86,8 @@ namespace testing
 
 
   ::testing::AssertionResult compareRegionArrays(Region_Ptr_t region1, Region_Ptr_t region2, std::string parameter, NTA_BasicType type);
-	::testing::AssertionResult captureParameters(Region_Ptr_t region1, std::map<std::string, std::string> parameters);
-	::testing::AssertionResult compareParameters(Region_Ptr_t region1, std::map<std::string, std::string> parameters);
+	::testing::AssertionResult captureParameters(Region_Ptr_t region1, std::map<std::string, std::string>& parameters);
+	::testing::AssertionResult compareParameters(Region_Ptr_t region1, std::map<std::string, std::string>& parameters);
 
 
   // Verify that all parameters are working.
@@ -405,7 +405,7 @@ namespace testing
 
 	  VERBOSE << "Checking data after first iteration..." << std::endl;
     VERBOSE << "  VectorFileSensor Output" << std::endl;
-    ArrayRef r1OutputArray = region1->getOutputData("dataOut");
+    Array r1OutputArray = region1->getOutputData("dataOut");
     EXPECT_EQ(r1OutputArray.getCount(), dataWidth);
     EXPECT_TRUE(r1OutputArray.getType() == NTA_BasicType_Real32);
     Real32 *buffer1 = (Real32*) r1OutputArray.getBuffer();
@@ -435,7 +435,7 @@ namespace testing
     VERBOSE << "Checking Output Data." << std::endl;
     VERBOSE << "  SPRegion output" << std::endl;
     UInt32 columnCount = region2->getParameterUInt32("columnCount");
-	  ArrayRef r2OutputArray = region2->getOutputData("bottomUpOut");
+	  Array r2OutputArray = region2->getOutputData("bottomUpOut");
 	  ASSERT_TRUE(r2OutputArray.getCount() == columnCount)
 		 << "Buffer length different. Output from SPRegion is " << r2OutputArray.getCount() << ", should be " << columnCount;
     Real32 *buffer3 = (Real32*)r2OutputArray.getBuffer();
@@ -473,74 +473,71 @@ namespace testing
 
 	  try {
 
-		VERBOSE << "Setup first network and save it" << std::endl;
-    Region_Ptr_t n1region1 = net1->addRegion("region1", "ScalarSensor", "{n: 100,w: 10,minValue: 0,maxValue: 10}");
-    Region_Ptr_t n1region2 = net1->addRegion("region2", "SPRegion", "{columnCount: 2048}");
-    net1->link("region1", "region2", "UniformLink", "", "encoded", "bottomUpIn");
-    net1->initialize();
+		  VERBOSE << "Setup first network and save it" << std::endl;
+      Region_Ptr_t n1region1 = net1->addRegion("region1", "ScalarSensor", "{n: 100,w: 10,minValue: 0,maxValue: 10}");
+      Region_Ptr_t n1region2 = net1->addRegion("region2", "SPRegion", "{columnCount: 2048}");
+      net1->link("region1", "region2", "UniformLink", "", "encoded", "bottomUpIn");
+      net1->initialize();
 
-    n1region1->setParameterReal64("sensedValue", 5.5);
-    n1region1->prepareInputs();
-		n1region1->compute();
+      n1region1->setParameterReal64("sensedValue", 5.5);
+      n1region1->prepareInputs();
+		  n1region1->compute();
 
-    n1region2->prepareInputs();
-    n1region2->compute();
+      n1region2->prepareInputs();
+      n1region2->compute();
 
-    // take a snapshot of everything in SPRegion at this point
-    std::map<std::string, std::string> parameterMap;
-    EXPECT_TRUE(captureParameters(n1region2, parameterMap)) << "Capturing parameters before save.";
+      // take a snapshot of everything in SPRegion at this point
+      std::map<std::string, std::string> parameterMap;
+      EXPECT_TRUE(captureParameters(n1region2, parameterMap)) << "Capturing parameters before save.";
 
-		net1->save("spRegionTest.nta");
+      Directory::removeTree("TestOutputDir", true);
+		  net1->save("TestOutputDir/spRegionTest.nta");
 
-		VERBOSE << "Restore into a second network and compare." << std::endl;
-		net2 = new Network("spRegionTest.nta");
+		  VERBOSE << "Restore into a second network and compare." << std::endl;
+		  net2 = new Network("TestOutputDir/spRegionTest.nta");
 
-		Region_Ptr_t n2region2 = net2->getRegions().getByName("region2");
-		ASSERT_TRUE (n2region2->getType() == "SPRegion") 
-		  << " Restored SPRegion region does not have the right type.  Expected SPRegion, found " << n2region2->getType();
+		  Region_Ptr_t n2region2 = net2->getRegions().getByName("region2");
+		  ASSERT_TRUE (n2region2->getType() == "SPRegion") 
+		    << " Restored SPRegion region does not have the right type.  Expected SPRegion, found " << n2region2->getType();
 
-    EXPECT_TRUE(compareParameters(n2region2, parameterMap)) << "Conflict when comparing SPRegion parameters after restore with before save.";
+      EXPECT_TRUE(compareParameters(n2region2, parameterMap)) << "Conflict when comparing SPRegion parameters after restore with before save.";
 
-    EXPECT_TRUE(compareRegionArrays(n1region2, n2region2, "spInputNonZeros", NTA_BasicType_UInt32)) << " comparing NZ in arrays after restore with before save.";
-    EXPECT_TRUE(compareRegionArrays(n1region2, n2region2, "spOutputNonZeros", NTA_BasicType_UInt32)) << " comparing NZ out arrays after restore with before save.";
-    EXPECT_TRUE(compareRegionArrays(n1region2, n2region2, "spOverlapDistribution", NTA_BasicType_Real32)) << " comparing overlap arrays after restore with before save.";
-    EXPECT_TRUE(compareRegionArrays(n1region2, n2region2, "denseOutput", NTA_BasicType_Real32)) << " comparing dense arrays after restore with before save.";
+      EXPECT_TRUE(compareRegionArrays(n1region2, n2region2, "spInputNonZeros", NTA_BasicType_UInt32)) << " comparing NZ in arrays after restore with before save.";
+      EXPECT_TRUE(compareRegionArrays(n1region2, n2region2, "spOutputNonZeros", NTA_BasicType_UInt32)) << " comparing NZ out arrays after restore with before save.";
 
 
-		// can we continue with execution?  See if we get any exceptions.
-    n1region1->setParameterReal64("sensedValue", 5.5);
-    n1region1->prepareInputs();
-    n1region1->compute();
+		  // can we continue with execution?  See if we get any exceptions.
+      n1region1->setParameterReal64("sensedValue", 5.5);
+      n1region1->prepareInputs();
+      n1region1->compute();
 
-    n2region2->prepareInputs();
-    n2region2->compute();
+      n2region2->prepareInputs();
+      n2region2->compute();
 
-		// Change some parameters and see if they are retained after a restore.
-    n2region2->setParameterUInt32("globalInhibition", 1);
-    n2region2->setParameterUInt32("numActiveColumnsPerInhArea", 40);
-    n2region2->setParameterReal32("localAreaDensity", -1.0f);
-    n2region2->setParameterReal32("potentialPct", 0.85f);
-    n2region2->setParameterReal32("synPermConnected", 0.1f);
-    n2region2->setParameterReal32("synPermActiveInc", 0.04f);
-    n2region2->setParameterReal32("synPermInactiveDec", 0.005f);
-    n2region2->setParameterReal32("boostStrength", 3.0f);
-    n2region2->compute();
+		  // Change some parameters and see if they are retained after a restore.
+      n2region2->setParameterBool("globalInhibition", true);
+      n2region2->setParameterUInt32("numActiveColumnsPerInhArea", 40);
+      n2region2->setParameterReal32("potentialPct", 0.85f);
+      n2region2->setParameterReal32("synPermConnected", 0.1f);
+      n2region2->setParameterReal32("synPermActiveInc", 0.04f);
+      n2region2->setParameterReal32("synPermInactiveDec", 0.005f);
+      n2region2->setParameterReal32("boostStrength", 3.0f);
+      n2region2->compute();
 
-    parameterMap.clear();
-    EXPECT_TRUE(captureParameters(n2region2, parameterMap)) << "Capturing parameters before second save.";
+      parameterMap.clear();
+      EXPECT_TRUE(captureParameters(n2region2, parameterMap)) << "Capturing parameters before second save.";
+		  net2->save("spRegionTest.nta");
 
-		net2->save("spRegionTest.nta");
+		  VERBOSE << "Restore into a third network and compare changed parameters." << std::endl;
+		  net3 = new Network("spRegionTest.nta");
+		  Region_Ptr_t n3region2 = net3->getRegions().getByName("region2");
+      EXPECT_TRUE(n3region2->getType() == "SPRegion")
+          << "Failure: Restored region does not have the right type. "
+              " Expected \"SPRegion\", found \""
+          << n3region2->getType() << "\".";
 
-		VERBOSE << "Restore into a third network and compare changed parameters." << std::endl;
-		net3 = new Network("spRegionTest.nta");
-		Region_Ptr_t n3region2 = net3->getRegions().getByName("region2");
-    EXPECT_TRUE(n3region2->getType() == "SPRegion")
-        << "Failure: Restored region does not have the right type. "
-            " Expected \"SPRegion\", found \""
-        << n3region2->getType() << "\".";
-
-    EXPECT_TRUE(compareParameters(n3region2, parameterMap))
-        << "Comparing parameters after second restore with before save.";
+      EXPECT_TRUE(compareParameters(n3region2, parameterMap))
+          << "Comparing parameters after second restore with before save.";
 
 
 	  }
@@ -551,9 +548,14 @@ namespace testing
 		  FAIL() << "Failure: Exception: " << e.what() << "" << std::endl;
 	  }
 
-	  if (net1 != nullptr) { delete net1; }
+
+    // cleanup
+    if (net1 != nullptr) {
+      delete net1;
+    }
 	  if (net2 != nullptr) { delete net2; }
 	  if (net3 != nullptr) { delete net3; }
+    Directory::removeTree("TestOutputDir", true);
 
 	}
 
@@ -570,9 +572,14 @@ namespace testing
 	  region1->getParameterArray(parameter, array1);
 	  region2->getParameterArray(parameter, array2);
 
+    if (type != array1.getType())
+      return ::testing::AssertionFailure()  << "Failure: Original Array for parameter '" << parameter  << "' is not the expected type.";
+    if (type != array2.getType())
+      return ::testing::AssertionFailure()  << "Failure: Restored Array for parameter '" << parameter << "' is not the expected type.";
+
 	  size_t len1 = array1.getCount();
 	  if (len1 != array2.getCount()) {
-      return ::testing::AssertionFailure() << "Failure: Arrays for parameter " << parameter << " are not the same length after restore.";
+      return ::testing::AssertionFailure() << "Failure: Arrays for parameter '" << parameter << "' are not the same length after restore.";
 	  }
 	  switch (type)
 	  {
@@ -581,7 +588,7 @@ namespace testing
 		buf2 = (UInt32*)array2.getBuffer();
 		for (int i = 0; i < len1; i++) {
 		  if (buf1[i] != buf2[i]) {
-        return ::testing::AssertionFailure() << "Failure: Array elements for parameter " << parameter << "[" << i << "] are not the sameafter restore.";
+        return ::testing::AssertionFailure() << "Failure: Array element for parameter '" << parameter << "[" << i << "]' is not the same after restore.";
 		  }
 		}
 		break;
@@ -591,7 +598,7 @@ namespace testing
 		buf4 = (Real32*)array2.getBuffer();
 		for (int i = 0; i < len1; i++) {
 		  if (buf3[i] != buf4[i]) {
-        return ::testing::AssertionFailure() << "Failure: Array elements for parameter " << parameter << "[" << i << "] are not the sameafter restore.";
+        return ::testing::AssertionFailure() << "Failure: Array element for parameter '" << parameter << "[" << i << "]' is not the same after restore.";
 		  }
 		}
 		break;
@@ -600,8 +607,9 @@ namespace testing
   }
 
 	// uses the Spec to capture the non-array parameters and write them into the provided map.
-	::testing::AssertionResult captureParameters(Region_Ptr_t region, std::map<std::string, std::string> parameters)
+	::testing::AssertionResult captureParameters(Region_Ptr_t region, std::map<std::string, std::string>& parameters)
 	{
+    parameters.clear();
 	  const Spec* ns = region->getSpec();
 	  size_t specCount = ns->parameters.getCount();
 	  // Look through the Spec and look for every instance of a parameter.  
@@ -613,11 +621,11 @@ namespace testing
       try {
         if (p.second.count == 1) {
           switch (p.second.dataType) {
+          case NTA_BasicType_Bool: { parameters[name] = (region->getParameterBool(name) ? "1" : "0"); break;  }
           case NTA_BasicType_UInt32: { parameters[name] = to_string(region->getParameterUInt32(name)); break; }
           case NTA_BasicType_Int32: { parameters[name] = to_string(region->getParameterInt32(name)); break; }
-
           case NTA_BasicType_Real32: { parameters[name] = to_string(region->getParameterReal32(name)); break; }
-          case NTA_BasicType_Bool: { parameters[name] = region->getParameterString(name); break; }
+          case NTA_BasicType_Byte: { parameters[name] = region->getParameterString(name); break; }
           default:
             break;
           } // end switch
@@ -637,7 +645,7 @@ namespace testing
 
 
 	// uses the Spec to find non-array parameters in the region and compare them to contents of the provided map.
-	::testing::AssertionResult compareParameters(Region_Ptr_t region, std::map<std::string, std::string> parameters)
+	::testing::AssertionResult compareParameters(Region_Ptr_t region, std::map<std::string, std::string>& parameters)
 	{
 	  const Spec* ns = region->getSpec();
     size_t specCount = ns->parameters.getCount();
@@ -649,7 +657,6 @@ namespace testing
 
       try {
         if (p.second.count == 1) {
-          return ::testing::AssertionFailure() << "parameter " << name << " does not match.";
           switch (p.second.dataType) {
           case NTA_BasicType_UInt32: {
             if (parameters[name] != to_string(region->getParameterUInt32(name))) {
@@ -678,7 +685,17 @@ namespace testing
           }
           break;
 
-          case NTA_BasicType_Bool: { 
+          case NTA_BasicType_Bool: {
+            if (parameters[name] !=  (region->getParameterBool(name) ? "1" : "0")) {
+              return ::testing::AssertionFailure()
+                     << "Parameter " << name << " Does not match.  Expected "
+                     << parameters[name] << " found "
+                     << (region->getParameterBool(name) ? "1" : "0") << "";
+            }
+          }
+          break;
+
+          case NTA_BasicType_Byte: {
             if (parameters[name] != region->getParameterString(name)) {
               return ::testing::AssertionFailure() << "Parameter "
                 << name << " Does not match.  Expected " << parameters[name]

@@ -450,24 +450,24 @@ TEST(UniformLinkPolicyTest, StrictMappingSplitOverReceptiveFields)
   std::vector<CoordBounds> expectedBoundVec;
 
   expectedBoundVec.push_back(
-    CoordBounds(makeCoordinate(0,0),
+    CoordBounds(makeCoordinate(0u,0u),
                 0,
-                std::pair<size_t, size_t>(0, 1)));
+                std::pair<size_t, size_t>(0u, 1u)));
 
   expectedBoundVec.push_back(
-    CoordBounds(makeCoordinate(1,0),
+    CoordBounds(makeCoordinate(1u,0u),
                 0,
-                std::pair<size_t, size_t>(2, 3)));
+                std::pair<size_t, size_t>(2u, 3u)));
 
   expectedBoundVec.push_back(
-    CoordBounds(makeCoordinate(2,0),
+    CoordBounds(makeCoordinate(2u,0u),
                 0,
-                std::pair<size_t, size_t>(4, 5)));
+                std::pair<size_t, size_t>(4u, 5u)));
 
   expectedBoundVec.push_back(
-    CoordBounds(makeCoordinate(3,0),
+    CoordBounds(makeCoordinate(3u,0u),
                 0,
-                std::pair<size_t, size_t>(6, 7)));
+                std::pair<size_t, size_t>(6u, 7u)));
 
   EXPECT_TRUE(
     inspector.setDimensionsAndCheckBounds(srcLinkSide,

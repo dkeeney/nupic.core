@@ -37,6 +37,7 @@
 #include <nupic/engine/RegisteredRegionImpl.hpp>
 #include <nupic/engine/Spec.hpp>
 #include <nupic/engine/TestNode.hpp>
+#include <nupic/ntypes/Array.hpp>
 #include <nupic/ntypes/BundleIO.hpp>
 #include <nupic/ntypes/Dimensions.hpp>
 #include <nupic/os/Directory.hpp>
@@ -237,7 +238,6 @@ TEST(LinkTest, DelayedLink) {
   }
 }
 
-/****
 TEST(LinkTest, DelayedLinkSerialization) {
   // serialization test of delayed link.
 
@@ -268,7 +268,7 @@ TEST(LinkTest, DelayedLinkSerialization) {
   region1->setDimensions(d1);
 
   // NOTE: initial delayed values are set to all 0's
-  net.link("region1", "region2", "TestFanIn2", "", "", "", 2 );
+  net.link("region1", "region2", "TestFanIn2", "", "", "", 2);
 
   net.initialize();
 
@@ -286,16 +286,14 @@ TEST(LinkTest, DelayedLinkSerialization) {
 
   // set in2 to all 1's, to detect if net.run fails to update the input.
   {
-    const ArrayBase *ai2 = &(in2->getData());
-    Real64 *idata = (Real64 *)(ai2->getBuffer());
+    Real64 *idata = (Real64 *)in2->getData().getBuffer();
     for (UInt i = 0; i < 64; i++)
       idata[i] = 1;
   }
 
   // set out1 to all 10's
   {
-    const ArrayBase *ao1 = &(out1->getData());
-    Real64 *idata = (Real64 *)(ao1->getBuffer());
+    Real64 *idata = (Real64 *)out1->getData().getBuffer();
     for (UInt i = 0; i < 64; i++)
       idata[i] = 10;
   }
@@ -306,8 +304,7 @@ TEST(LinkTest, DelayedLinkSerialization) {
     net.run(1);
 
     // confirm that in2 is all zeroes
-    const ArrayBase *ai2 = &(in2->getData());
-    Real64 *idata = (Real64 *)(ai2->getBuffer());
+    Real64 *idata = (Real64 *)in2->getData().getBuffer();
     // only test 4 instead of 64 to cut down on number of tests
     for (UInt i = 0; i < 4; i++)
       ASSERT_EQ(0, idata[i]);
@@ -315,8 +312,7 @@ TEST(LinkTest, DelayedLinkSerialization) {
 
   // set out1 to all 100's
   {
-    const ArrayBase *ao1 = &(out1->getData());
-    Real64 *idata = (Real64 *)(ao1->getBuffer());
+    Real64 *idata = (Real64 *)out1->getData().getBuffer();
     for (UInt i = 0; i < 64; i++)
       idata[i] = 100;
   }
@@ -326,8 +322,7 @@ TEST(LinkTest, DelayedLinkSerialization) {
     net.run(1);
 
     // confirm that in2 is all zeroes
-    const ArrayBase *ai2 = &(in2->getData());
-    Real64 *idata = (Real64 *)(ai2->getBuffer());
+    Real64 *idata = (Real64 *)in2->getData().getBuffer();
     // only test 4 instead of 64 to cut down on number of tests
     for (UInt i = 0; i < 4; i++)
       ASSERT_EQ(0, idata[i]);
@@ -338,47 +333,51 @@ TEST(LinkTest, DelayedLinkSerialization) {
   // Serialize the current net
   net.save("TestOutputDir/DelayedLinkSerialization.nta");
 
-  // confirm that in2 is now all 10's in the original network.
-  {
-    net.run(1);
-    const ArrayBase *ai2 = &(in2->getData());
-    Real64 *idata = (Real64 *)(ai2->getBuffer());
-    // only test 4 instead of 64 to cut down on number of tests
-    for (UInt i = 0; i < 4; i++)
-      ASSERT_EQ(10, idata[i]);
-  }
-
   // De-serialize into a new net2
   Network net2("TestOutputDir/DelayedLinkSerialization.nta");
-
-  net2.initialize();
 
   auto n2region1 = net2.getRegions().getByName("region1");
   auto n2region2 = net2.getRegions().getByName("region2");
   in2 = n2region2->getInput("bottomUpIn");
 
-  // Check extraction of first "generated" value
+  Input *n2in1 = n2region1->getInput("bottomUpIn");
+  Input *n2in2 = n2region2->getInput("bottomUpIn");
+  Output *n2out1 = n2region1->getOutput("bottomUpOut");
+
+  // Make sure that the buffers in the restored network look exactly like the original.
+  ASSERT_TRUE(n2in1->getData() == in1->getData())   << "Deserialized bottomUpIn region1 input buffer does not match";
+  ASSERT_TRUE(n2in2->getData() == in2->getData())   << "Deserialized bottomUpIn region2 does not match";
+  ASSERT_TRUE(n2out1->getData() == out1->getData()) << "Deserialized bottomUpOut region1 does not match";
+
+  // Check extraction of first "generated" value.
+  // Input values in both networks should be all 10's
   {
+    net.run(1);
     net2.run(1);
 
-    // confirm that in2 is now all 10's
-    const ArrayBase *ai2 = &(in2->getData());
-    Real64 *idata = (Real64 *)(ai2->getBuffer());
+    Real64 *idata = (Real64 *)in2->getData().getBuffer();
+    Real64 *n2idata = (Real64 *)n2in2->getData().getBuffer();
     // only test 4 instead of 64 to cut down on number of tests
-    for (UInt i = 0; i < 4; i++)
+    for (UInt i = 0; i < 4; i++) {
       ASSERT_EQ(10, idata[i]);
+      ASSERT_EQ(10, n2idata[i]);
+    }
   }
 
   // Check extraction of second "generated" value
+  // Input values in both networks should be all 100's
   {
+    net.run(1);
     net2.run(1);
 
     // confirm that in2 is now all 100's
-    const ArrayBase *ai2 = &(in2->getData());
-    Real64 *idata = (Real64 *)(ai2->getBuffer());
+    Real64 *idata = (Real64 *)in2->getData().getBuffer();
+    Real64 *n2idata = (Real64 *)n2in2->getData().getBuffer();
     // only test 4 instead of 64 to cut down on number of tests
-    for (UInt i = 0; i < 4; i++)
+    for (UInt i = 0; i < 4; i++) {
       ASSERT_EQ(100, idata[i]);
+      ASSERT_EQ(100, n2idata[i]);
+    }
   }
 
   RegionImplFactory::unregisterCPPRegion("MyTestNode");

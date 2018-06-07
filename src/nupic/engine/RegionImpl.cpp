@@ -290,8 +290,8 @@ size_t RegionImpl::getParameterArrayCount(const std::string& name, Int64 index)
   size_t count = region_->getSpec()->parameters.getByName(name).count;
   if (count == 0)
   {
-    NTA_THROW << "Internal Error -- unknown element count for "
-              << "node type " << getType() << ". The RegionImpl "
+    NTA_THROW << "Internal Error -- unknown Array parameter element count for "
+              << "node type '" << getType() << "' parameter '" << name << "'. The RegionImpl "
               << "implementation should override this method.";
   }
 

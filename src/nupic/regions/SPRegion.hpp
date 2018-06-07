@@ -85,6 +85,8 @@ namespace nupic
     bool   getParameterBool(const std::string& name, Int64 index) override;
     std::string getParameterString(const std::string& name, Int64 index) override;
     void getParameterArray(const std::string& name, Int64 index, Array & array) override;
+    size_t getParameterArrayCount(const std::string &name, Int64 index) override;
+
 
     void setParameterUInt32(const std::string& name, Int64 index, UInt32 value) override;
     void setParameterInt32(const std::string& name, Int64 index, Int32 value) override;
@@ -94,7 +96,7 @@ namespace nupic
 
 	
 	private:
-		SPRegion();  // not allowed
+		SPRegion();  // empty constructor not allowed
 
     struct {
       UInt inputWidth;
@@ -126,6 +128,10 @@ namespace nupic
     Array spatialPoolerOutput_;
     Array nzInput_;
     Array nzOutput_;
+    bool nzInputValid_;
+    bool nzOutputValid_;
+    bool inputValid_;
+    bool outputValid_;
 
 
     std::string logPathInput_; 

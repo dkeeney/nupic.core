@@ -35,7 +35,7 @@
 #include <map>
 #include <set>
 
-//#include <pybind11/pybind11.h>
+#include <yaml-cpp/yaml.h>
 
 // We need the full definitions because these
 // objects are returned by value.
@@ -480,17 +480,10 @@ namespace nupic
      * @param inputName
      *        The name of the target input
      *
-     * @returns An @c ArrayRef that contains the input data.
+     * @returns An @c ArrayRef that references the Input object's buffer.
+     *          This is shared with the Input object so when it changes the ArrayRef's buffer also changes.
+     *          Note that this is read-only.
      *
-     * @internal
-     *
-     * @note The data is either stored in the
-     * the @c ArrayRef or point to the internal stored data,
-     * the actual behavior is controlled by the 'copy' argument (see below).
-     *
-     * @todo what's the copy' argument mentioned here?
-     *
-     * @endinternal
      *
      */
     virtual ArrayRef
@@ -503,20 +496,12 @@ namespace nupic
      *        The name of the target output
      *
      * @returns
-     *        An @c ArrayRef that contains the output data.
-     *
-     * @internal
-     *
-     * @note The data is either stored in the
-     * the @c ArrayRef or point to the internal stored data,
-     * the actual behavior is controlled by the 'copy' argument (see below).
-     *
-     * @todo what's the copy' argument mentioned here?
-     *
-     * @endinternal
+     *        An @c Array that references the output data buffer.
+     *        This buffer is shared with the Output object.
+     *        Putting data into this buffer will be changing the Output's buffer.
      *
      */
-    virtual ArrayRef
+    virtual const Array&
     getOutputData(const std::string& outputName) const;
 
     /**
@@ -633,6 +618,8 @@ namespace nupic
      */
     const Timer& getExecuteTimer() const;
 
+
+    ////////////////////////////////////////////////////////////////////////
     /**
      * @}
      */
@@ -653,6 +640,9 @@ namespace nupic
            Network * network = nullptr);
 
     virtual ~Region();
+
+    void serializeOutput(YAML::Emitter &out);
+    void deserializeOutput(const YAML::Node& node);
 
     void
     initialize();

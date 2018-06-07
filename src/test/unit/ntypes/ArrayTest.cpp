@@ -28,6 +28,9 @@
 
 #include <nupic/ntypes/ArrayBase.hpp>
 #include <nupic/types/BasicType.hpp>
+#include <nupic/ntypes/Array.hpp>
+#include <nupic/ntypes/ArrayRef.hpp>
+#include <nupic/os/OS.hpp>
 
 #include <boost/scoped_ptr.hpp>
 #include <boost/scoped_array.hpp>
@@ -105,7 +108,6 @@ void AccessViolationHandler(int signal)
 {
   throw AccessViolationError();
 }
-
 typedef void (*AccessViolationHandlerPointer)(int);
 
 TEST_F(ArrayTest, testMemoryOperations)
@@ -189,6 +191,87 @@ TEST_F(ArrayTest, testMemoryOperations)
 }
 
 #endif
+
+
+
+TEST_F(ArrayTest, testMemory) {
+  // We are going to try to perform the same test as above but without 
+  // messing with the signal handlers. 
+  char testValue; 
+  char *ownedBufferLocation;
+  Array b(NTA_BasicType_Byte);
+  ArrayRef c;
+
+
+
+  {
+    Array a(NTA_BasicType_Byte);
+
+    a.allocateBuffer(100000);
+    ownedBufferLocation = (char*)a.getBuffer();
+    EXPECT_TRUE(a.getCount() == 100000);
+
+    // Verify that we can write into the buffer
+    bool wasAbleToWriteToBuffer = true;
+    try {
+      for (unsigned int i = 0; i < 9; i++) {
+        ownedBufferLocation[i] = 'A' + i;
+      }
+      ownedBufferLocation[9] = '\0';
+    } catch ( std::exception e) {
+      wasAbleToWriteToBuffer = false;
+    }
+    EXPECT_TRUE(wasAbleToWriteToBuffer) <<  "Write to full length of allocated buffer should have succeeded.";
+
+    // Verify that we can read from the buffer
+    testValue = '\0';
+    testValue = ((char *)ownedBufferLocation)[8];
+    EXPECT_TRUE(testValue == 'I')  << "Was not able to read the right thing from the buffer.";
+  }
+  // The Array object is now out of scope so its buffer should be invalid.
+
+  {
+    Array a(NTA_BasicType_Byte);
+    a.allocateBuffer(10);
+    ownedBufferLocation = (char*)a.getBuffer();
+    for (unsigned int i = 0; i < 9; i++) {
+      ownedBufferLocation[i] = 'A' + i;
+    }
+    ownedBufferLocation[9] = '\0';
+    char testRead = ownedBufferLocation[4];
+    EXPECT_TRUE(testRead == 'E') << "Should be able to write and read the Array.";
+
+    // make an asignment to another Array instance and to an ArrayRef instance.
+    b = a; // shallow copy.  Buffer not copied but remains valid after a is
+           // deleted.
+    c = a.ref();  // also a shallow copy
+    EXPECT_TRUE(c.getType() == NTA_BasicType_Byte)  << "The data type should have been copied to the ArrayRef.";
+
+    EXPECT_TRUE(((char *)b.getBuffer())[4] == 'E')  << "Should be able to read the new Array instance.";
+    EXPECT_TRUE(((char *)c.getBuffer())[4] == 'E')  << "Should be able to read the new ArrayRef instance.";
+    ((char *)b.getBuffer())[4] = 'Z';
+    EXPECT_TRUE(((char *)b.getBuffer())[4] == 'Z') << "Should be able to modify the new Array instance.";
+    EXPECT_TRUE(((char *)c.getBuffer())[4] == 'Z') << "The ArrayRef instance should also see the change.";
+    EXPECT_TRUE(((char *)a.getBuffer())[4] == 'Z') << "The original buffer should also change.";
+  }
+  // the Array a is now out of scope but the buffer should still be valid.
+  EXPECT_TRUE(((char *)b.getBuffer())[4] == 'Z')   << "Should still see the buffer in the new Array instance.";
+  EXPECT_TRUE(((char *)c.getBuffer())[4] == 'Z')   << "The ArrayRef instance should also still see the buffer.";
+  EXPECT_TRUE(ownedBufferLocation[4] == 'Z')  << "The pointer should also still see the buffer.";
+
+  b.releaseBuffer();
+  // The b buffer is no longer valid but c still has a reference to it.
+  EXPECT_TRUE(b.getBuffer() == nullptr)  << "expected a null pointer because the buffer was released.";
+  EXPECT_TRUE(b.getCount() == 0)  << "expected a 0 length because the buffer was released.";
+  EXPECT_TRUE(((char *)c.getBuffer())[4] == 'Z') << "The ArrayRef instance should also still see the buffer.";
+  EXPECT_TRUE(((char *)ownedBufferLocation)[4] == 'Z') << "The pointer should also still see the buffer.";
+
+  c.releaseBuffer();
+  EXPECT_TRUE(c.getBuffer() == nullptr)  << "ArrayRef was released so it should have had a null pointer";
+  //EXPECT_ANY_THROW(testValue = ((char *)ownedBufferLocation)[4];)
+  //    << "The pointer should no longer be valid.";   // cannot really test for a memory leak this way.
+}
+
 
 TEST_F(ArrayTest, testArrayCreation)
 {
@@ -314,12 +397,12 @@ TEST_F(ArrayTest, testBufferAllocation)
         caughtException = true;
       }
       
-      ASSERT_TRUE(caughtException)
+      ASSERT_FALSE(caughtException)
         << "Test case: " + testCase->first +
             " - allocating a buffer when one is already allocated should "
-            "raise an exception";
+            "not raise an exception. The allocation will release the previous buffer.";
       
-      ASSERT_EQ((size_t) testCase->second.allocationSize, a.getCount())
+      ASSERT_EQ((size_t)10, a.getCount())
         << "Test case: " + testCase->first +
            " - Size of allocated ArrayBase should match requested size";
     }
@@ -361,11 +444,13 @@ TEST_F(ArrayTest, testBufferAssignment)
       caughtException = true;
     }
     
-    ASSERT_TRUE(caughtException)
+    ASSERT_FALSE(caughtException)
       << "Test case: " +
           testCase->first +
-          " - setting a buffer when one is already set should raise an "
+          " - setting a buffer when one is already set should not raise an "
           "exception";
+    ASSERT_EQ(a.getCount(), testCase->second.allocationSize)
+        << "Buffer size should be the requested amount.";
   }    
 }
 

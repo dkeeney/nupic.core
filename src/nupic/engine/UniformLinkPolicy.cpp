@@ -63,17 +63,17 @@ void UniformLinkPolicy::readParameters(const std::string& params)
 {
   ValueMap paramMap = YAMLUtils::toValueMap(params.c_str(), parameters_);
 
-  boost::shared_ptr<std::string> mappingStr = paramMap.getString("mapping");
+  std::string mappingStr = paramMap.getString("mapping");
 
-  if(*mappingStr == "in")
+  if(mappingStr == "in")
   {
     mapping_ = inMapping;
   }
-  else if(*mappingStr == "out")
+  else if(mappingStr == "out")
   {
     mapping_ = outMapping;
   }
-  else if(*mappingStr == "full")
+  else if(mappingStr == "full")
   {
     mapping_ = fullMapping;
   }
@@ -91,14 +91,14 @@ void UniformLinkPolicy::readParameters(const std::string& params)
                                    paramMap,
                                    "rfOverlap");
 
-  boost::shared_ptr<std::string> rfGranularityStr =
+  std::string rfGranularityStr =
     paramMap.getString("rfGranularity");
 
-  if(*rfGranularityStr == "nodes")
+  if(rfGranularityStr == "nodes")
   {
     rfGranularity_ = nodesGranularity;
   }
-  else if (*rfGranularityStr == "elements")
+  else if (rfGranularityStr == "elements")
   {
     rfGranularity_ = elementsGranularity;
   }
@@ -121,14 +121,13 @@ void UniformLinkPolicy::readParameters(const std::string& params)
                                    paramMap,
                                    "span");
 
-  boost::shared_ptr<std::string> strictStr =
-    paramMap.getString("strict");
+  std::string strictStr =  paramMap.getString("strict");
 
-  if(*strictStr == "true")
+  if(strictStr == "true")
   {
     strict_ = true;
   }
-  else if(*strictStr == "false")
+  else if(strictStr == "false")
   {
     strict_ = false;
   }

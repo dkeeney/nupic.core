@@ -153,8 +153,7 @@ static Value toValue(const YAML::Node& node, NTA_BasicType dataType)
     {
       // node >> *str;
       const std::string val = node.as<std::string>();
-      boost::shared_ptr<std::string> str(new std::string(val));
-      Value v(str);
+      Value v(val);
       return v;
     } else {
       boost::shared_ptr<Scalar> s(new Scalar(dataType));

@@ -71,7 +71,7 @@ TEST(YAMLUtilsTest, toValueTestByte)
   EXPECT_TRUE(v.isString()) << "assertion v.isScalar() failed at "
     << __FILE__ << ":" << __LINE__ ;
   ASSERT_EQ(v.getType(), NTA_BasicType_Byte);
-  std::string s = *v.getString();
+  std::string s = v.getString();
   EXPECT_STREQ(s1, s.c_str());
 }
 

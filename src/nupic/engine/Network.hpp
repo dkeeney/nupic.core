@@ -100,6 +100,8 @@ namespace nupic
      * before Network.run(). However, if you don't call it, Network.run() will
      * call it for you. Also sets up various memory buffers etc. once the Network
      *  structure has been finalized.
+     *
+     * @note After Deserializing, it is assumed that net.initialize() will be called.
      */
     void
     initialize();

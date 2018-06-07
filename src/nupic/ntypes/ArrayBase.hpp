@@ -35,11 +35,16 @@
 #ifndef NTA_ARRAY_BASE_HPP
 #define NTA_ARRAY_BASE_HPP
 
-#include <iostream> // for ostream
+#include <iostream> // for ostream, istream
 #include <stdlib.h> // for size_t
 #include <string>
 
 #include <nupic/types/Types.h>
+#include <yaml-cpp/yaml.h>
+
+
+
+
 
 namespace nupic
 {
@@ -75,20 +80,20 @@ namespace nupic
     /**
      * Ask ArrayBase to allocate its buffer
      */
-    void
+    virtual void
     allocateBuffer(size_t count);
 
     /**
     * Ask ArrayBase to zero fill its buffer
     */
-    void
+    virtual void
     zeroBuffer();
 
 
-    void
+    virtual void
     setBuffer(void *buffer, size_t count);
 
-    void
+    virtual void
     releaseBuffer();
 
     void*
@@ -101,53 +106,55 @@ namespace nupic
     NTA_BasicType
     getType() const;
 
+    bool 
+    isInstance(const ArrayBase &a);
+
+    /**
+    * YAML serialization and deserialization for an Array
+    */
+    virtual void serialize(YAML::Emitter& out) const;
+    virtual void deserialize(const YAML::Node& node);
+
+
+    friend std::ostream &operator<<(std::ostream &outStream,  const ArrayBase &a);
+    friend std::istream &operator>>(std::istream &inStream, ArrayBase &a);
+
   protected:
     // buffer_ is typed so that we can use new/delete
     // cast to/from void* as necessary
-    char* buffer_;
+    std::shared_ptr<char> buffer_;
     size_t count_;
     NTA_BasicType type_;
     bool own_;
 
   private:
-    /**
-     * Element-type-specific templated function for streaming elements to
-     * ostream. Elements are comma+space-separated and enclosed in braces.
-     *
-     * @param outStream   output stream
-     * @param inbuf       input buffer
-     * @param numElements number of elements to use from the beginning of buffer
-     */
-    template <typename SourceElementT>
-    static void _templatedStreamBuffer(std::ostream& outStream,
-                                       const void* inbuf,
-                                       size_t numElements)
-    {
-      outStream << "(";
 
-      // Stream the elements
-      auto it = (const SourceElementT*)inbuf;
-      auto const end = it + numElements;
-      if (it < end)
-      {
-        for (; it < end - 1; ++it)
-        {
-          outStream << *it << ", ";
-        }
-
-        outStream << *it;  // final element without the comma
-      }
-
-      outStream << ")";
-    }
-
-    friend std::ostream& operator<<(std::ostream&, const ArrayBase&);
   };
 
-  // Serialization for diagnostic purposes
-  std::ostream& operator<<(std::ostream&, const ArrayBase&);
+  // If this class does NOT own the buffer we instantiate the shared_ptr
+  // with a version that uses this class as the deleter.  This results
+  // in the buffer not being deleted when the last instance of this class
+  // is deleted. The Caller is responsible for deleting the buffer.
+  struct nonDeleter {
+    void operator()(char *p) const {
+    }
+  };
+  ///////////////////////////////////////////////////////////
+  // for stream serialization on an Array
+  //    [ type count ( item item item ) ]
+  // for inStream the Array object must already exist and initialized with a type.
+  // The buffer will be allocated and populated with this class as owner.
+  std::ostream &operator<<(std::ostream &outStream, const ArrayBase &a);
+  std::istream &operator>>(std::istream &inStream, ArrayBase &a);
 
-}
+  // Compare contents of two ArrayBase objects
+  // Note: An Array and an ArrayRef could be the same if type, count, and buffer
+  // contents are the same.
+  bool operator==(const ArrayBase &lhs, const ArrayBase &rhs);
+  inline bool operator!=(const ArrayBase &lhs, const ArrayBase &rhs) {return !(lhs == rhs);}
+
+} // namespace
+
 
 #endif
 

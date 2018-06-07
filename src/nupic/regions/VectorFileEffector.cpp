@@ -46,11 +46,7 @@ VectorFileEffector::VectorFileEffector(const ValueMap& params, Region* region) :
   filename_(""),
   outFile_(nullptr)
 {
-  if (params.contains("outputFile"))
-    filename_ = *params.getString("outputFile");
-  else
-    filename_ = "";
-
+    filename_ = params.getString("outputFile", "");
 }
 
 VectorFileEffector::VectorFileEffector(BundleIO& bundle, Region* region) :

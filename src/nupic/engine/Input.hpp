@@ -157,7 +157,7 @@ namespace nupic
      * Get the data of the input.
      *
      * @returns
-     *         A mutable reference to the data of the input as an @c Array
+     *         An immutable reference to the data of the input as an @c Array
      */
     const Array &
     getData() const;

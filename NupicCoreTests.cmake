@@ -35,22 +35,6 @@ set(unit_tests_executable unit_tests)
 
 set(test_src ${CMAKE_SOURCE_DIR}/src/test)
 set(src_executable_gtests
-               ${test_src}/unit/algorithms/AnomalyTest.cpp
-               ${test_src}/unit/algorithms/Cells4Test.cpp
-               ${test_src}/unit/algorithms/CondProbTableTest.cpp
-               ${test_src}/unit/algorithms/ConnectionsTest.cpp
-               ${test_src}/unit/algorithms/NearestNeighborUnitTest.cpp
-               ${test_src}/unit/algorithms/SDRClassifierTest.cpp
-               ${test_src}/unit/algorithms/SegmentTest.cpp
-               ${test_src}/unit/algorithms/SpatialPoolerTest.cpp
-               ${test_src}/unit/algorithms/SvmTest.cpp
-               ${test_src}/unit/algorithms/TemporalMemoryTest.cpp
-               ${test_src}/unit/encoders/ScalarEncoderTest.cpp
-               ${test_src}/unit/engine/InputTest.cpp
-               ${test_src}/unit/engine/LinkTest.cpp
-               ${test_src}/unit/engine/NetworkTest.cpp
-               ${test_src}/unit/engine/UniformLinkPolicyTest.cpp
-               ${test_src}/unit/engine/YAMLUtilsTest.cpp
                ${test_src}/unit/math/DenseTensorUnitTest.cpp
                ${test_src}/unit/math/DomainUnitTest.cpp
                ${test_src}/unit/math/IndexUnitTest.cpp
@@ -77,14 +61,31 @@ set(src_executable_gtests
                ${test_src}/unit/os/PathTest.cpp
                ${test_src}/unit/os/RegexTest.cpp
                ${test_src}/unit/os/TimerTest.cpp
-               ${test_src}/unit/region/SPRegionTest.cpp
                ${test_src}/unit/types/BasicTypeTest.cpp
                ${test_src}/unit/types/ExceptionTest.cpp
                ${test_src}/unit/types/FractionTest.cpp
                ${test_src}/unit/utils/GroupByTest.cpp
                ${test_src}/unit/utils/MovingAverageTest.cpp
                ${test_src}/unit/utils/RandomTest.cpp
-               ${test_src}/unit/utils/WatcherTest.cpp)
+               ${test_src}/unit/utils/WatcherTest.cpp
+               ${test_src}/unit/algorithms/AnomalyTest.cpp
+               ${test_src}/unit/algorithms/Cells4Test.cpp
+               ${test_src}/unit/algorithms/CondProbTableTest.cpp
+               ${test_src}/unit/algorithms/ConnectionsTest.cpp
+               ${test_src}/unit/algorithms/NearestNeighborUnitTest.cpp
+               ${test_src}/unit/algorithms/SDRClassifierTest.cpp
+               ${test_src}/unit/algorithms/SegmentTest.cpp
+               ${test_src}/unit/algorithms/SpatialPoolerTest.cpp
+               ${test_src}/unit/algorithms/SvmTest.cpp
+               ${test_src}/unit/algorithms/TemporalMemoryTest.cpp
+               ${test_src}/unit/engine/InputTest.cpp
+               ${test_src}/unit/engine/LinkTest.cpp
+               ${test_src}/unit/engine/NetworkTest.cpp
+               ${test_src}/unit/engine/UniformLinkPolicyTest.cpp
+               ${test_src}/unit/engine/YAMLUtilsTest.cpp
+               ${test_src}/unit/region/SPRegionTest.cpp
+               ${test_src}/unit/encoders/ScalarEncoderTest.cpp
+               )
 
 add_executable(${unit_tests_executable} ${src_executable_gtests})
 target_link_libraries(${unit_tests_executable}

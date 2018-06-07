@@ -127,10 +127,8 @@ namespace nupic
 
     /**
      * De-serialization use case. Creates a "blank" link. The caller must follow
-     * up with Link::read and Link::connectToNetwork
+     * up with Link::deserialize() and Link::connectToNetwork
      *
-     * @param proto
-     *            LinkProto::Reader
      */
     Link();
 
@@ -414,9 +412,22 @@ namespace nupic
      * Serialize the link to YAML.
      *
      * @param out
-     *            The YAML Emitter to encode into.
+     *            The YAML Emitter to encode into (from Network.cpp)
      */
-    void serialize(YAML::Emitter* out);
+    void serialize(YAML::Emitter& out);
+
+    /**
+     * Deserialize the link from YAML.
+     *
+     * @param link
+     *            The YAML Node to decode from (from Network.cpp)
+     *
+     * @note After deserializing the link, caller must now call 
+     *    newLink->connectToNetwork(srcOutput, destInput);
+     *
+     * After everything is deserialized caller must call
+     *    net.initialize()
+     */
     void deserialize(const YAML::Node& link);
 
 

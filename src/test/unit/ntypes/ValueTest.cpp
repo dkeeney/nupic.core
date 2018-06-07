@@ -79,7 +79,7 @@ TEST(ValueTest, Array)
 
 TEST(ValueTest, String)
 {
-  boost::shared_ptr<std::string> s(new std::string("hello world"));
+  std::string s("hello world");
   Value v(s);
   ASSERT_TRUE(! v.isArray());
   ASSERT_TRUE(v.isString());
@@ -87,8 +87,8 @@ TEST(ValueTest, String)
   ASSERT_EQ(Value::stringCategory, v.getCategory());
   ASSERT_EQ(NTA_BasicType_Byte, v.getType());
     
-  boost::shared_ptr<std::string> s1 = v.getString();
-  EXPECT_STREQ("hello world", s1->c_str());
+  std::string s1 = v.getString();
+  EXPECT_STREQ("hello world", s1.c_str());
     
   ASSERT_ANY_THROW(v.getScalar());
   ASSERT_ANY_THROW(v.getArray());
@@ -102,7 +102,7 @@ TEST(ValueTest, ValueMap)
   boost::shared_ptr<Scalar> s(new Scalar(NTA_BasicType_Int32));
   s->value.int32 = 10;
   boost::shared_ptr<Array> a(new Array(NTA_BasicType_Real32));
-  boost::shared_ptr<std::string> str(new std::string("hello world"));
+  std::string str("hello world");
   
   ValueMap vm;
   vm.add("scalar", s);

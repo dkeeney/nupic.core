@@ -146,7 +146,7 @@ Input::prepare()
 const Array &
 Input::getData() const
 {
-  NTA_CHECK(initialized_);
+  NTA_CHECK(initialized_) << "Attempt to access an Input object but it is not initialized.";
   return data_;
 }
 

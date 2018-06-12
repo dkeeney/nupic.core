@@ -109,6 +109,8 @@ namespace nupic
     bool 
     isInstance(const ArrayBase &a);
 
+
+
     /**
     * YAML serialization and deserialization for an Array
     */
@@ -126,6 +128,8 @@ namespace nupic
     size_t count_;
     NTA_BasicType type_;
     bool own_;
+    void convertInto(const ArrayBase &a) const;
+
 
   private:
 

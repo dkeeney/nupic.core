@@ -147,14 +147,21 @@ void SPRegion::initialize() {
   // However, if nothing is connected it might not be. The SpatialPooler
   // algorithm requires input.
   //
+  // If there are more than on input link, the input buffer will be the concatination
+  // of all incomming buffers.
   UInt32 inputWidth = (UInt32)region_->getInputData("bottomUpIn").getCount();
   if (inputWidth == 0) {
     NTA_THROW << "SPRegion::initialize - No input was provided.\n";
   }
+
+  // Note: if inputWidth is provided in the parameters then the SpatialPooler
+  // will only look at that many bits regardless as to how many output buffers
+  // are concatinated to form the input buffer.
   if (args_.inputWidth && args_.inputWidth != inputWidth) {
-    NTA_THROW << "SPRegion::initialize - Configured Input Dimensions do not "
-                 "match dimensions on input link.";
+    if (inputWidth > args_.inputWidth)
+      inputWidth = args_.inputWidth;  // truncate the buffer to configured width.
   }
+  // start with an empty buffer until we start running.
   spatialPoolerInput_.allocateBuffer(inputWidth);
   spatialPoolerInput_.zeroBuffer();
 
@@ -186,21 +193,11 @@ void SPRegion::compute() {
     // BOTTOM-UP compute mode
     iter_++;
 
-    // Note: The Inputs and Outputs are Real32 types.
-    //       The SpatialPooler algorithm expects UInt (containing 1's and 0's)
-    //       We SHOULD copy the arrays to make the conversion. However
-    //       note that a Real32 0.0 value is the same as a UInt 0 value.
-    //       The SpatialPooler treats anything non-zero as a 1 so we can
-    //       cheat and just cast the *Real32 pointer to a *UInt32 pointer
-    //       and thus avoid the copy.
-
+    // Note: The Input and Output objects are Real32 types.
+    //       The SpatialPooler algorithm expects UInt32 (containing 1's and 0's)
+    //       So we must perform a copy with a type conversion.
     // Prepare the input
-    const Array &incoming = getInput("bottomUpIn")->getData();
-    Real32 *in1 = (Real32 *)incoming.getBuffer();
-    UInt32 *in2 = (UInt32 *)spatialPoolerInput_.getBuffer();
-    for (size_t i = 0; i < incoming.getCount(); i++) {
-      *in2++ = (UInt32)floor(*in1++); // convert from Real32 to UInt32
-    }
+    spatialPoolerInput_ = getInput("bottomUpIn")->getData().as(NTA_BasicType_UInt32);
     inputValid_ = true;
     nzInputValid_ = false;
 
@@ -226,12 +223,7 @@ void SPRegion::compute() {
     sp_->compute(inputVector, learningMode_, outputVector);
 
     // Prepare the output
-    const Array &output = getOutput("bottomUpOut")->getData();
-    Real32 *out2 = (Real32 *)output.getBuffer();
-    UInt32 *out1 = outputVector;
-    for (size_t i = 0; i < output.getCount(); i++) {
-      *out2++ = (Real32)(*out1++); // convert from UInt32 to Real32
-    }
+    getOutput("bottomUpOut")->getData().convertInto(spatialPoolerOutput_);
     outputValid_ = true;
     nzOutputValid_ = false;
 
@@ -314,11 +306,13 @@ Spec *SPRegion::createSpec() {
 
   ns->parameters.add(
       "inputWidth",
-      ParameterSpec("Size of inputs to the SP.  This is the input Dimension.",
+      ParameterSpec("Maximum size of the 'bottomUpIn' input to the SP.  This is the input Dimension. "
+                    "If not given or 0, the input buffer width is taken from the width "
+                    "of all concatinated output buffers that are connected to the input.",
                     NTA_BasicType_UInt32,            // type
                     1,                               // elementCount
                     "",                              // constraints
-                    "",                              // defaultValue
+                    "0",                             // defaultValue
                     ParameterSpec::ReadOnlyAccess)); // access
 
   ns->parameters.add(

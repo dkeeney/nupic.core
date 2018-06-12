@@ -135,19 +135,38 @@ namespace nupic {
     // copy constructor
     // by default, a copy constructor is a shallow copy which would result in two
     // Array objects pointing to the same buffer. However, this is stored in a
-    // smart pointer so both Array objects must be deleted before the buffer is
+    // shared smart pointer so both Array objects must be deleted before the buffer is
     // deleted. So the default copy constructor is ok.
     // Array(const Array &other) : ArrayBase(other.type_)
 
     // There are times when we do want a deep copy.  The copy() function
     // will make a full copy of the buffer and becomes the buffer owner.
-    Array copy() {
+    Array copy() const {
       Array a(type_);
       if (count_ > 0) {
         a.allocateBuffer(count_);
         memcpy((char *)a.buffer_.get(), (char *)buffer_.get(),
                count_ * BasicType::getSize(type_));
       }
+    }
+
+    // Type conversion
+    // Note: this will reallocate the buffer
+    //       Other instances will be disconnected.
+    Array as(NTA_BasicType type) const { 
+      Array a(type);
+      a.allocateBuffer(count_); 
+      convertInto(a);
+      return a;
+    }
+    // Type conversion
+    // Note: this will reuse the same buffer.
+    //       Other instances will not be disconnected.
+    //       Counts must be the same.
+    void convertInto(const Array& a) const {
+      if (a.getCount() != getCount())
+        NTA_THROW << "Attempted type conversion but source and destination counts are different.";
+      ArrayBase::convertInto(a);
     }
 
     // Returns an ArrayRef that points to this Array's buffer
@@ -166,6 +185,7 @@ namespace nupic {
   private:
     // Hide base class method (invalid for Array)
     void setBuffer(void *buffer, size_t count) override {}
+
   };
 } // namespace nupic
 

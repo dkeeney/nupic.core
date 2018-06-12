@@ -153,10 +153,20 @@ ArrayBase::getType() const
 };
 
 
+void 
+ArrayBase::convertInto(const ArrayBase &a) const { 
+  void *toPtr = a.getBuffer();
+  const void *fromPtr = getBuffer();
+  BasicType::convertArray(toPtr, a.type_, fromPtr, type_, count_);
+}
+
+
 bool ArrayBase::isInstance(const ArrayBase &a) { 
   if (a.buffer_ == nullptr || buffer_ == nullptr)  return false;
   return (buffer_ == a.buffer_);
 }
+
+
 
 
 ///////////////////////////////////////////////////////////////////////////////

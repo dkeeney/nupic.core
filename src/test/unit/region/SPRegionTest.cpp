@@ -48,7 +48,6 @@
 #include <nupic/engine/Output.hpp>
 #include <nupic/engine/Link.hpp>
 #include <nupic/engine/RegisteredRegionImpl.hpp>
-#include <nupic/ntypes/Dimensions.hpp>
 #include <nupic/ntypes/Array.hpp>
 #include <nupic/ntypes/ArrayRef.hpp>
 #include <nupic/types/Exception.hpp>
@@ -396,9 +395,6 @@ namespace testing
 	  // check actual dimensions
     ASSERT_EQ(region2->getParameterUInt32("columnCount"), 100);
     ASSERT_EQ(region2->getParameterUInt32("inputWidth"), (UInt32)dataWidth);
-    const Dimensions& r2dims = region2->getDimensions();
-	  ASSERT_TRUE(r2dims.size() == 1) << "Size is wrong, actual dims: " << r2dims.toString();
-	  ASSERT_TRUE(r2dims[0] == 1) << "First dim is not 1 (don't care). actual dims: " << r2dims.toString();
 
     VERBOSE << "Execute once." << std::endl;
     net.run(1);

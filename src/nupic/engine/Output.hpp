@@ -53,10 +53,8 @@ public:
    *        The region that the output belongs to.
    * @param type
    *        The type of the output, TODO
-   * @param isRegionLevel
-   *        Whether the output is region level, i.e. TODO
    */
-  Output(Region &region, NTA_BasicType type, bool isRegionLevel);
+  Output(Region &region, NTA_BasicType type);
 
   /**
    * Destructor
@@ -71,7 +69,7 @@ public:
    * @param name
    *        The name of the output
    */
-  void setName(const std::string &name);
+  void setName(const std::string &name) { name_ = name; }
 
   /**
    * Get the name of the output.
@@ -79,7 +77,7 @@ public:
    * @return
    *        The name of the output
    */
-  const std::string &getName() const;
+  const std::string &getName() const { return name_; }
 
   /**
    * Initialize the Output .
@@ -133,21 +131,11 @@ public:
    * Get the data of the output.
    *
    * @returns
-   *         A constant reference to the data of the output as an @c Array
+   *         A reference to the data of the output as an @c Array
    *
-   * @note It's important to return a const array so caller can't
-   * reallocate the buffer.
    */
-  const Array &getData() const;
+  Array &getData() { return data_; }
 
-  /**
-   *
-   * Tells whether the output is region level.
-   *
-   * @returns
-   *     Whether the output is region level, i.e. TODO
-   */
-  bool isRegionLevel() const;
 
   /**
    *
@@ -156,7 +144,7 @@ public:
    * @returns
    *         The mutable reference to the Region that the output belongs to
    */
-  Region &getRegion() const;
+  Region &getRegion() const { return region_; }
 
   /**
    * Get the count of node output element.
@@ -164,15 +152,18 @@ public:
    * @returns
    *         The count of node output element, previously set by initialize().
    */
-  size_t getNodeOutputElementCount() const;
+  size_t getNodeOutputElementCount() const {
+    return nodeOutputElementCount_;
+  }
 
-  void serializeData(YAML::Emitter &out) { data_->serialize(out); }
-  void deserializeData(const YAML::Node doc) { data_->deserialize(doc); }
+
+  void serializeData(YAML::Emitter &out) { data_.serialize(out); }
+  void deserializeData(const YAML::Node doc) { data_.deserialize(doc); }
 
 private:
   Region &region_; // needed for number of nodes
-  Array *data_;
-  bool isRegionLevel_;
+  Array data_;
+
   // order of links never matters, so store as a set
   // this is different from Input, where they do matter
   std::set<Link_Ptr_t> links_;

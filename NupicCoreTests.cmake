@@ -49,10 +49,8 @@ set(src_executable_gtests
                ${test_src}/unit/ntypes/ArrayTest.cpp
                ${test_src}/unit/ntypes/BufferTest.cpp
                ${test_src}/unit/ntypes/CollectionTest.cpp
-               ${test_src}/unit/ntypes/DimensionsTest.cpp
                ${test_src}/unit/ntypes/MemParserTest.cpp
                ${test_src}/unit/ntypes/MemStreamTest.cpp
-               ${test_src}/unit/ntypes/NodeSetTest.cpp
                ${test_src}/unit/ntypes/ScalarTest.cpp
                ${test_src}/unit/ntypes/ValueTest.cpp
                ${test_src}/unit/os/DirectoryTest.cpp
@@ -81,7 +79,6 @@ set(src_executable_gtests
                ${test_src}/unit/engine/InputTest.cpp
                ${test_src}/unit/engine/LinkTest.cpp
                ${test_src}/unit/engine/NetworkTest.cpp
-               ${test_src}/unit/engine/UniformLinkPolicyTest.cpp
                ${test_src}/unit/engine/YAMLUtilsTest.cpp
                ${test_src}/unit/region/SPRegionTest.cpp
                ${test_src}/unit/encoders/ScalarEncoderTest.cpp

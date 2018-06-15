@@ -29,7 +29,6 @@
 #include <nupic/engine/Output.hpp>
 #include <nupic/engine/Region.hpp>
 #include <nupic/engine/TestNode.hpp>
-#include <nupic/ntypes/Dimensions.hpp>
 #include "gtest/gtest.h"
 
 using namespace nupic;
@@ -41,72 +40,49 @@ TEST(InputTest, BasicNetworkConstruction)
     auto r2 = net.addRegion("r2", "TestNode", "");
 
     //Test constructor
-    Input x(*r1, NTA_BasicType_Int32, true);
-    Input y(*r2, NTA_BasicType_Byte, false);
-    EXPECT_THROW(Input i(*r1, (NTA_BasicType)(NTA_BasicType_Last + 1), true),
+    Input x(*r1, NTA_BasicType_Int32);
+    Input y(*r2, NTA_BasicType_Byte);
+    EXPECT_THROW(Input i(*r1, (NTA_BasicType)(NTA_BasicType_Last + 1)),
         std::exception);
 
     //test getRegion()
     ASSERT_EQ(r1.get(), &(x.getRegion()));
     ASSERT_EQ(r2.get(), &(y.getRegion()));
 
-    //test isRegionLevel()
-    ASSERT_TRUE(x.isRegionLevel());
-    ASSERT_TRUE(!y.isRegionLevel());
 
     //test isInitialized()
     ASSERT_TRUE(!x.isInitialized());
     ASSERT_TRUE(!y.isInitialized());
 
-    //test one case of initialize()
-    EXPECT_THROW(x.initialize(), std::exception);
-    EXPECT_THROW(y.initialize(), std::exception);
+    net.link("r1", "r2");
 
-    Dimensions d1;
-    d1.push_back(8);
-    d1.push_back(4);
-    r1->setDimensions(d1);
-    Dimensions d2;
-    d2.push_back(4);
-    d2.push_back(2);
-    r2->setDimensions(d2);
-    net.link("r1", "r2", "TestFanIn2", "");
+    net.initialize();
 
-    x.initialize();
-    y.initialize();
-
-    //test evaluateLinks()
-    //should return 0 because x is initialized
-    ASSERT_EQ(0u, x.evaluateLinks());
-    //should return 0 because there are no links
-    ASSERT_EQ(0u, y.evaluateLinks());
+    Input *z = r1->getInput("bottomUpIn");
 
     //test getData()
-    const ArrayBase * pa = &(y.getData());
+    const Array * pa = &(z->getData());
     ASSERT_EQ(0u, pa->getCount());
     Real64* buf = (Real64*)(pa->getBuffer());
     ASSERT_TRUE(buf != nullptr);
+    NTA_BasicType type = pa->getType();
+    ASSERT_TRUE(type == NTA_BasicType_Real64);
 }
 
 
-TEST(InputTest, SplitterMap)
+TEST(InputTest, BufferManagement)
 {
     Network net;
-    auto region1 = net.addRegion("region1", "TestNode", "");
-    auto region2 = net.addRegion("region2", "TestNode", "");
+    auto region1 = net.addRegion("region1", "TestNode", "{count: 64}");
+    auto region2 = net.addRegion("region2", "TestNode", "{count: 64}");
 
-    Dimensions d1;
-    d1.push_back(8);
-    d1.push_back(4);
-    region1->setDimensions(d1);
 
     //test addLink() indirectly - it is called by Network::link()
-    net.link("region1", "region2", "TestFanIn2", "");
+    net.link("region1", "region2");
 
     //test initialize(), which is called by net.initialize()
     net.initialize();
 
-    Dimensions d2 = region2->getDimensions();
     Input * in1 = region1->getInput("bottomUpIn");
     Input * in2 = region2->getInput("bottomUpIn");
     Output * out1 = region1->getOutput("bottomUpOut");
@@ -115,36 +91,37 @@ TEST(InputTest, SplitterMap)
     ASSERT_TRUE(in1->isInitialized());
     ASSERT_TRUE(in2->isInitialized());
 
-    //test evaluateLinks(), in1 already initialized
-    ASSERT_EQ(0u, in1->evaluateLinks());
-    ASSERT_EQ(0u, in2->evaluateLinks());
-
     //test prepare
     {
         //set in2 to all zeroes
         const ArrayBase * ai2 = &(in2->getData());
-        Real64* idata = (Real64*)(ai2->getBuffer());
+        ASSERT_EQ(ai2->getCount(),64);
+        Real64 *idata = (Real64 *)(ai2->getBuffer());
         for (UInt i = 0; i < 64; i++)
             idata[i] = 0;
 
         //set out1 to all 10's
-        const ArrayBase * ao1 = &(out1->getData());
-        idata = (Real64*)(ao1->getBuffer());
+        const ArrayBase *ao1 = &(out1->getData());
+        ASSERT_EQ(ao1->getCount(),64);
+        idata = (Real64 *)(ao1->getBuffer());
         for (UInt i = 0; i < 64; i++)
             idata[i] = 10;
 
         //confirm that in2 is still all zeroes
         ai2 = &(in2->getData());
-        idata = (Real64*)(ai2->getBuffer());
+        ASSERT_EQ(ai2->getCount(), 64);
+        idata = (Real64 *)(ai2->getBuffer());
         //only test 4 instead of 64 to cut down on number of tests
         for (UInt i = 0; i < 4; i++)
             ASSERT_EQ(0, idata[i]);
 
+        // moves Outputs to Inputs for region2.
         in2->prepare();
 
         //confirm that in2 is now all 10's
         ai2 = &(in2->getData());
-        idata = (Real64*)(ai2->getBuffer());
+        ASSERT_EQ(ai2->getCount(), 64);
+        idata = (Real64 *)(ai2->getBuffer());
         //only test 4 instead of 64 to cut down on number of tests
         for (UInt i = 0; i < 4; i++)
             ASSERT_EQ(10, idata[i]);
@@ -152,26 +129,7 @@ TEST(InputTest, SplitterMap)
 
     net.run(2);
 
-    //test getSplitterMap()
-    std::vector< std::vector<size_t> > sm;
-    sm = in2->getSplitterMap();
-    ASSERT_EQ(8u, sm.size());
-    ASSERT_EQ(8u, sm[0].size());
-    ASSERT_EQ(16u, sm[0][4]);
-    ASSERT_EQ(12u, sm[3][0]);
-    ASSERT_EQ(31u, sm[3][7]);
 
-    //test getInputForNode()
-    std::vector<Real64> input;
-    in2->getInputForNode(0, input);
-    ASSERT_EQ(1, input[0]);
-    ASSERT_EQ(0, input[1]);
-    ASSERT_EQ(8, input[5]);
-    ASSERT_EQ(9, input[7]);
-    in2->getInputForNode(3, input);
-    ASSERT_EQ(1, input[0]);
-    ASSERT_EQ(6, input[1]);
-    ASSERT_EQ(15, input[7]);
 
     //test getData()
     const ArrayBase * pa = &(in2->getData());
@@ -179,72 +137,44 @@ TEST(InputTest, SplitterMap)
     Real64* data = (Real64*)(pa->getBuffer());
     ASSERT_EQ(1, data[0]);
     ASSERT_EQ(0, data[1]);
-    ASSERT_EQ(1, data[30]);
-    ASSERT_EQ(15, data[31]);
-    ASSERT_EQ(31, data[63]);
+    ASSERT_EQ(29, data[30]);
+    ASSERT_EQ(30, data[31]);
+    ASSERT_EQ(62, data[63]);
 }
 
 TEST(InputTest, LinkTwoRegionsOneInput)
 {
     Network net;
-    auto region1 = net.addRegion("region1", "TestNode", "");
-    auto region2 = net.addRegion("region2", "TestNode", "");
+    auto region1 = net.addRegion("region1", "TestNode", "{count: 128}");
+    auto region2 = net.addRegion("region2", "TestNode", "{count: 128}");
     auto region3 = net.addRegion("region3", "TestNode", "");
 
-    Dimensions d1;
-    d1.push_back(8);
-    d1.push_back(4);
-    region1->setDimensions(d1);
-    region2->setDimensions(d1);
 
-    net.link("region1", "region3", "TestFanIn2", "");
-    net.link("region2", "region3", "TestFanIn2", "");
+    net.link("region1", "region3", "", "");
+    net.link("region2", "region3", "", "");
 
     net.initialize();
 
-    Dimensions d3 = region3->getDimensions();
-    Input * in3 = region3->getInput("bottomUpIn");
-
-    ASSERT_EQ(2u, d3.size());
-    ASSERT_EQ(4u, d3[0]);
-    ASSERT_EQ(2u, d3[1]);
-
     net.run(2);
 
-    //test getSplitterMap()
-    std::vector< std::vector<size_t> > sm;
-    sm = in3->getSplitterMap();
-    ASSERT_EQ(8u, sm.size());
-    ASSERT_EQ(16u, sm[0].size());
-    ASSERT_EQ(16u, sm[0][4]);
-    ASSERT_EQ(12u, sm[3][0]);
-    ASSERT_EQ(31u, sm[3][7]);
-
-    //test getInputForNode()
-    std::vector<Real64> input;
-    in3->getInputForNode(0, input);
-    ASSERT_EQ(1, input[0]);
-    ASSERT_EQ(0, input[1]);
-    ASSERT_EQ(8, input[5]);
-    ASSERT_EQ(9, input[7]);
-    in3->getInputForNode(3, input);
-    ASSERT_EQ(1, input[0]);
-    ASSERT_EQ(6, input[1]);
-    ASSERT_EQ(15, input[7]);
 
     //test getData()
-    const ArrayBase * pa = &(in3->getData());
-    ASSERT_EQ(128u, pa->getCount());
+    Input *in3 = region3->getInput("bottomUpIn");
+    const ArrayBase *pa = &(in3->getData());
+    ASSERT_EQ(256u, pa->getCount());  // double wide buffer
     Real64* data = (Real64*)(pa->getBuffer());
     ASSERT_EQ(1, data[0]);
     ASSERT_EQ(0, data[1]);
-    ASSERT_EQ(1, data[30]);
-    ASSERT_EQ(15, data[31]);
-    ASSERT_EQ(31, data[63]);
-    ASSERT_EQ(1, data[64]);
-    ASSERT_EQ(0, data[65]);
-    ASSERT_EQ(1, data[94]);
-    ASSERT_EQ(15, data[95]);
-    ASSERT_EQ(31, data[127]);
+    ASSERT_EQ(29, data[30]);
+    ASSERT_EQ(30, data[31]);
+    ASSERT_EQ(62, data[63]);
+    ASSERT_EQ(63, data[64]);
+    ASSERT_EQ(64, data[65]);
+    ASSERT_EQ(93, data[94]);
+    ASSERT_EQ(94, data[95]);
+    ASSERT_EQ(126, data[127]);
 
+    ASSERT_EQ(1, data[128]);
+    ASSERT_EQ(0, data[129]);
+    ASSERT_EQ(126, data[255]);
 }

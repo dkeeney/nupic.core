@@ -39,7 +39,6 @@
 
 // We need the full definitions because these
 // objects are returned by value.
-#include <nupic/ntypes/Dimensions.hpp>
 #include <nupic/os/Timer.hpp>
 #include <nupic/types/Types.hpp>
 #include <nupic/types/ptr_types.hpp>
@@ -95,24 +94,6 @@ namespace nupic
      */
     const std::string&
     getName() const;
-
-
-    /**
-     * Get the dimensions of the region.
-     *
-     * @returns The region's dimensions
-     */
-    const Dimensions&
-    getDimensions() const;
-
-    /**
-     * Assign width and height to the region.
-     *
-     * @param dimensions
-     *        A Dimensions object that describes the width and height
-     */
-    void
-    setDimensions(Dimensions & dimensions);
 
 
     /**
@@ -635,7 +616,6 @@ namespace nupic
     // New region from serialized state
     Region(std::string name,
            const std::string& type,
-           const Dimensions& dimensions,
            BundleIO& bundle,
            Network * network = nullptr);
 
@@ -668,13 +648,6 @@ namespace nupic
 
     // The following methods are called by Network in initialization
 
-    // Returns number of links that could not be fully evaluated
-    size_t
-    evaluateLinks();
-
-    std::string
-    getLinkErrors() const;
-
     size_t
     getNodeOutputElementCount(const std::string& name);
 
@@ -687,12 +660,6 @@ namespace nupic
     void
     intialize();
 
-    // Internal -- for link debugging
-    void
-    setDimensionInfo(const std::string& info);
-
-    const std::string&
-    getDimensionInfo() const;
 
     bool
     hasOutgoingLinks() const;
@@ -707,8 +674,6 @@ namespace nupic
     void
     removeAllIncomingLinks();
 
-    const NodeSet&
-    getEnabledNodes() const;
 
     // TODO: sort our phases api. Users should never call Region::setPhases
     // and it is here for serialization only.
@@ -745,24 +710,13 @@ namespace nupic
     InputMap inputs_;
     // used for serialization only
     std::set<UInt32> phases_;
-    Dimensions dims_; // topology of nodes; starts as []
     bool initialized_;
 
-    NodeSet* enabledNodes_;
 
     // Region contains a backpointer to network_ only to be able
     // to retrieve the containing network via getNetwork() for inspectors.
     // The implementation should not use network_ in any other methods.
     Network* network_;
-
-    // Figuring out how a region's dimensions were set
-    // can be difficult because any link can induce
-    // dimensions. This field says how a region's dimensions
-    // were set.
-    std::string dimensionInfo_;
-
-    // private helper methods
-    void setupEnabledNodeSet();
 
 
     // Profiling related methods and variables.

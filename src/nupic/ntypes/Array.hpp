@@ -68,6 +68,11 @@
 //     Array B = A.copy();
 // This full copy will not be affected by changes to the original buffer.
 //
+// TYPE CONVERSION:
+// You can convert a buffer using the convertInto() or as() functions
+// The as() function will allocate a new buffer convert this buffer into another type.
+// The convertInto() function trys to keep the same output buffer and just converts into the
+// existing buffer. However, if the existing buffer is too small it will reallocate the buffer.
 //
 // SERIALIZATION
 // Two serialization methods are supported. 
@@ -139,6 +144,10 @@ namespace nupic {
     // deleted. So the default copy constructor is ok.
     // Array(const Array &other) : ArrayBase(other.type_)
 
+
+    /////////////////////////////////////
+    //   Copy tools
+
     // There are times when we do want a deep copy.  The copy() function
     // will make a full copy of the buffer and becomes the buffer owner.
     Array copy() const {
@@ -148,6 +157,17 @@ namespace nupic {
         memcpy((char *)a.buffer_.get(), (char *)buffer_.get(),
                count_ * BasicType::getSize(type_));
       }
+      return a;
+    }
+
+    // This will do a shallow copy into the target array
+    // This is for when we do not want to replace the Array object but
+    // want it to become a shared buffer instance.
+    void zeroCopy(Array &a) { 
+      a.buffer_ = buffer_;  // copies the shared_ptr
+      a.count_ = count_;
+      a.capacity_ = capacity_;
+      a.type_ = type_;
     }
 
     // Type conversion
@@ -160,13 +180,21 @@ namespace nupic {
       return a;
     }
     // Type conversion
-    // Note: this will reuse the same buffer.
-    //       Other instances will not be disconnected.
-    //       Counts must be the same.
-    void convertInto(const Array& a) const {
-      if (a.getCount() != getCount())
-        NTA_THROW << "Attempted type conversion but source and destination counts are different.";
-      ArrayBase::convertInto(a);
+    // Note: this will attempt to reuse the same buffer
+    //       so that the instances will not be disconnected.
+    //       However, if buffer is too small, it will be reallocated.
+    void convertInto(Array& a, size_t offset=0) const {
+      ArrayBase::convertInto(a, offset);
+    }
+
+    // Copy a subset
+    // This creates a new buffer of the same type.
+    Array subset(size_t offset, size_t count) const { 
+      Array a(type_);
+      a.allocateBuffer(count);
+      memcpy(a.getBuffer(), buffer_.get() + offset * BasicType::getSize(type_),
+             count * BasicType::getSize(type_));
+      return a;
     }
 
     // Returns an ArrayRef that points to this Array's buffer

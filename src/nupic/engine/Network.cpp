@@ -66,9 +66,14 @@ Network::Network(const std::string& path)
       << "maxphase: " << maxEnabledPhase_ << " size: " << phaseInfo_.size();
 
   // copy restored outputs to connected inputs.
-  for (UInt32 phase = minEnabledPhase_; phase <= maxEnabledPhase_; phase++) {
-    for (auto r : phaseInfo_[phase]) {
-      r->prepareInputs();  
+  // must call prepareInputs() only once per region.
+  for (size_t i = 0; i < regions_.getCount(); i++) {
+    Region_Ptr_t r = regions_.getByIndex(i).second;
+    r->prepareInputs();
+    for (const auto &inputTuple : r->getInputs()) {
+      for (const auto pLink : inputTuple.second->getLinks()) {
+        pLink->shiftBufferedData();
+      }
     }
   }
 }
@@ -145,7 +150,6 @@ void Network::setDefaultPhase_(Region_Ptr_t region)
 
 Region_Ptr_t Network::addRegionFromBundle(const std::string& name,
                                      const std::string& nodeType,
-                                     const Dimensions& dimensions,
                                      const std::string& bundlePath,
                                      const std::string& label)
 {
@@ -157,7 +161,7 @@ Region_Ptr_t Network::addRegionFromBundle(const std::string& name,
               << " does not exist";
 
   BundleIO bundle(bundlePath, label, name, /* isInput: */ true );
-  auto r = std::make_shared<Region>(name, nodeType, dimensions, bundle, this);
+  auto r = std::make_shared<Region>(name, nodeType, bundle, this);
   regions_.add(name, r);
   initialized_ = false;
 
@@ -347,6 +351,8 @@ Network::link(const std::string& srcRegionName, const std::string& destRegionNam
   auto link = std::make_shared<Link>(linkType, linkParams, srcOutput, destInput, propagationDelay);
 
   destInput->addLink(link, srcOutput);
+
+  initialized_ = false;
 }
 
 
@@ -410,6 +416,7 @@ Network::run(int n)
   for(int iter = 0; iter < n; iter++)
   {
     iteration_++;
+    NTA_DEBUG << "> Iteration: " << iteration_ << " <";
 
     // compute on all enabled regions in phase order
     for (UInt32 phase = minEnabledPhase_; phase <= maxEnabledPhase_; phase++)
@@ -430,14 +437,11 @@ Network::run(int n)
 
     // Refresh all links in the network at the end of every timestamp so that
     // data in delayed links appears to change atomically between iterations
-    for (size_t i = 0; i < regions_.getCount(); i++)
-    {
+    for (size_t i = 0; i < regions_.getCount(); i++) {
       const Region_Ptr_t r = regions_.getByIndex(i).second;
 
-      for (const auto & inputTuple: r->getInputs())
-      {
-        for (const auto pLink: inputTuple.second->getLinks())
-        {
+      for (const auto &inputTuple : r->getInputs()) {
+        for (const auto pLink : inputTuple.second->getLinks()) {
           pLink->shiftBufferedData();
         }
       }
@@ -463,79 +467,9 @@ Network::initialize()
   if (initialized_)
     return;
 
-  /*
-   * 1. Calculate all region dimensions by
-   * iteratively evaluating links to induce
-   * region dimensions.
-   */
-
-
-  // Iterate until all regions have finished
-  // evaluating their links. If network is
-  // incompletely specified, we'll never finish,
-  // so make sure we make progress each time
-  // through the network.
-
-  size_t nLinksRemainingPrev = std::numeric_limits<size_t>::max();
-  size_t nLinksRemaining = nLinksRemainingPrev - 1;
-
-  std::vector<Region_Ptr_t>::iterator r;
-  while(nLinksRemaining > 0 && nLinksRemainingPrev > nLinksRemaining)
-  {
-    nLinksRemainingPrev = nLinksRemaining;
-    nLinksRemaining = 0;
-
-    for (size_t i = 0; i < regions_.getCount(); i++)
-    {
-      // evaluateLinks returns the number
-      // of links which still need to be
-      // evaluated.
-      Region_Ptr_t r = regions_.getByIndex(i).second;
-      nLinksRemaining += r->evaluateLinks();
-    }
-  }
-
-  if (nLinksRemaining > 0)
-  {
-    // Try to give complete information to the user
-    std::stringstream ss;
-    ss << "Network::initialize() -- unable to evaluate all links\n"
-       << "The following links could not be evaluated:\n";
-    for (size_t i = 0; i < regions_.getCount(); i++)
-    {
-      Region_Ptr_t r = regions_.getByIndex(i).second;
-      std::string errors = r->getLinkErrors();
-      if (errors.size() == 0)
-        continue;
-      ss << errors << "\n";
-    }
-    NTA_THROW << ss.str();
-  }
-
-
-  // Make sure all regions now have dimensions
-  for (size_t i = 0; i < regions_.getCount(); i++)
-  {
-    Region_Ptr_t r = regions_.getByIndex(i).second;
-    const Dimensions& d = r->getDimensions();
-    if (d.isUnspecified())
-    {
-      NTA_THROW << "Network::initialize() -- unable to complete initialization "
-                << "because region '" << r->getName() << "' has unspecified "
-                << "dimensions. You must either specify dimensions directly or "
-                << "link to the region in a way that induces dimensions on the region.";
-    }
-    if (!d.isValid())
-    {
-      NTA_THROW << "Network::initialize() -- invalid dimensions " << d.toString()
-                << " for Region " << r->getName();
-    }
-
-  }
-
 
   /*
-   * 2. initialize outputs:
+   * 1. initialize outputs:
    *   - . Delegated to regions
    */
   for (size_t i = 0; i < regions_.getCount(); i++)
@@ -545,7 +479,7 @@ Network::initialize()
   }
 
   /*
-   * 3. initialize inputs
+   * 2. initialize inputs
    *    - Delegated to regions
    */
   for (size_t i = 0; i < regions_.getCount(); i++)
@@ -555,7 +489,7 @@ Network::initialize()
   }
 
   /*
-   * 4. initialize region/impl
+   * 3. initialize region/impl
    */
   for (size_t i = 0; i < regions_.getCount(); i++)
   {
@@ -564,7 +498,7 @@ Network::initialize()
   }
 
   /*
-   * 5. Enable all phases in the network
+   * 4. Enable all phases in the network
    */
   resetEnabledPhases_();
 
@@ -689,7 +623,6 @@ void Network::saveToBundle(const std::string& name)
     }
     Directory::removeTree(fullPath);
   }
-
   Directory::create(fullPath, false, true);
 
   {
@@ -697,6 +630,7 @@ void Network::saveToBundle(const std::string& name)
     out << YAML::BeginDoc;
     out << YAML::BeginMap;
     out << YAML::Key << "Version" << YAML::Value << 2;
+    out << YAML::Key << "iteration" << YAML::Value << iteration_;
     out << YAML::Key << "Regions" << YAML::Value << YAML::BeginSeq;
     for (size_t regionIndex = 0; regionIndex < regions_.getCount(); regionIndex++)
     {
@@ -709,7 +643,6 @@ void Network::saveToBundle(const std::string& name)
       out << YAML::BeginMap;
       out << YAML::Key << "name" << YAML::Value << r->getName();
       out << YAML::Key << "nodeType" << YAML::Value << r->getType();
-      out << YAML::Key << "dimensions" << YAML::Value << r->getDimensions();
       out << YAML::Key << "phases" << YAML::Value << YAML::BeginSeq;
       for (const auto &phases_phase : r->getPhases()) {
         out << phases_phase;
@@ -792,13 +725,16 @@ void Network::loadFromBundle(const std::string& name)
   NTA_CHECK(doc.Type() == YAML::NodeType::Map)  << "Invalid network structure file -- does not contain a map";
 
   // Should contain Version, Regions, Links
-  NTA_CHECK(doc.size() == 3) << "Invalid network structure file -- contains " << doc.size() << " elements";
+  NTA_CHECK(doc.size() == 4) << "Invalid network structure file -- contains " << doc.size() << " elements";
 
   // Extra version
   auto node = doc["Version"];
 
   const int version = node.as<int>();
   NTA_CHECK(version == 2) << "Invalid network structure file -- only version 2 supported";
+
+  node = doc["iteration"];
+  iteration_ = node.as<UInt64>();
 
   // Regions
   const auto regions = doc["Regions"];
@@ -810,7 +746,7 @@ void Network::loadFromBundle(const std::string& name)
     // Each region is a map -- extract the 5 values in the map
     NTA_CHECK(region.Type() == YAML::NodeType::Map) << "Invalid network structure file -- bad region (not a map)";
 
-    NTA_CHECK(region.size() == 6) << "Invalid network structure file -- bad region (wrong size)";
+    NTA_CHECK(region.size() == 5) << "Invalid network structure file -- bad region (wrong size)";
 
     // 1. name
     node = region["name"];
@@ -823,18 +759,7 @@ void Network::loadFromBundle(const std::string& name)
     const std::string nodeType = node.as<std::string>();
     ;
 
-    // 3. dimensions
-    node = region["dimensions"];
-    NTA_CHECK(node.Type() == YAML::NodeType::Sequence) << "Invalid network structure file -- region "
-                                                       << name << " dimensions specified incorrectly";
-    Dimensions dimensions;
-    for (const auto & valiter : node)
-    {
-      const size_t val = valiter.as<size_t>();
-      dimensions.push_back(val);
-    }
-
-    // 4. phases
+    // 3. phases
     node = region["phases"];
     NTA_CHECK(node.Type() == YAML::NodeType::Sequence) << "Invalid network structure file -- region "
                 << name << " phases specified incorrectly";
@@ -847,16 +772,16 @@ void Network::loadFromBundle(const std::string& name)
     }
 
 
-    // 5. label
+    // 4. label
     node = region["label"];
     NTA_CHECK(node.IsScalar()) << "Invalid network structure file -- region '" << name << "' missing the label.";
     const std::string label = node.as<std::string>();
 
     // we have enough info to create the region and add it to the network.
-    Region_Ptr_t r = addRegionFromBundle(name, nodeType, dimensions, fullPath, label);
+    Region_Ptr_t r = addRegionFromBundle(name, nodeType, fullPath, label);
     setPhases_(r, phases);
 
-    // 6. Outputs, Need to deserialize the Output buffers for this region.
+    // 5. Outputs, Need to deserialize the Output buffers for this region.
     node = region["outputs"];
     NTA_CHECK(node.IsSequence()) << "Invalid network structure file -- region '"  << name << "' missing the outputs.";
     r->deserializeOutput(node);

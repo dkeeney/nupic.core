@@ -154,8 +154,6 @@ namespace nupic
      *        Name of the region, Must be unique in the network
      * @param nodeType
      *        Type of node in the region, e.g. "FDRNode"
-     * @param dimensions
-     *        Dimensions of the region
      * @param bundlePath
      *        The path to the bundle
      * @param label
@@ -169,7 +167,6 @@ namespace nupic
     Region_Ptr_t
     addRegionFromBundle(const std::string& name,
                         const std::string& nodeType,
-                        const Dimensions& dimensions,
                         const std::string& bundlePath,
                         const std::string& label);
 
@@ -204,7 +201,7 @@ namespace nupic
      */
     void
     link(const std::string& srcName, const std::string& destName,
-         const std::string& linkType, const std::string& linkParams,
+         const std::string& linkType="", const std::string& linkParams="",
          const std::string& srcOutput="", const std::string& destInput="",
          const size_t propagationDelay=0);
 

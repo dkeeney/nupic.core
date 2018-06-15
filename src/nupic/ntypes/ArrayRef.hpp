@@ -96,6 +96,7 @@ private:
       : ArrayBase(type) {
     buffer_ = sharedBuffer;
     count_ = count;
+    capacity_ = count;
     own_ = false;
   }
   friend class Array;

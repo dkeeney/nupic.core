@@ -69,6 +69,7 @@ ArrayBase::ArrayBase(NTA_BasicType type)
   own_ = true;
   buffer_ = nullptr;
   count_ = 0;
+  capacity_ = 0;
 }
 
 /**
@@ -94,6 +95,7 @@ ArrayBase::allocateBuffer(size_t count)
   //disambiguate uninitialized ArrayBases and ArrayBases initialized with
   //size zero.
   count_ = count;
+  capacity_ = count;
   size_t memsize = count_ * BasicType::getSize(type_);
   std::shared_ptr<char> sp(new char[memsize], std::default_delete<char[]>());
   buffer_ = sp;
@@ -107,7 +109,7 @@ ArrayBase::allocateBuffer(size_t count)
 void
 ArrayBase::zeroBuffer()
 {
-  memset(buffer_.get(), 0, count_ * BasicType::getSize(type_));
+  memset(buffer_.get(), 0, capacity_ * BasicType::getSize(type_));
 }
 
 /**
@@ -123,6 +125,7 @@ ArrayBase::setBuffer(void *buffer, size_t count)
 {
   buffer_ = std::shared_ptr<char>((char*)buffer, nonDeleter());
   count_ = count;
+  capacity_ = count;
   own_ = false;
 }
 
@@ -131,6 +134,7 @@ ArrayBase::releaseBuffer()
 {
   buffer_.reset();
   count_ = 0;
+  capacity_ = 0;
 }
 
 void*
@@ -146,6 +150,17 @@ ArrayBase::getCount() const
   return count_;
 };
 
+void ArrayBase::setCount(size_t count)
+{ 
+  NTA_ASSERT(count > capacity_)  << "Cannot set the array count greater than the capacity.";
+  count_ = count; 
+}
+
+size_t 
+ArrayBase::getCapacity() const
+{ 
+  return capacity_; }
+
 NTA_BasicType
 ArrayBase::getType() const
 {
@@ -154,10 +169,16 @@ ArrayBase::getType() const
 
 
 void 
-ArrayBase::convertInto(const ArrayBase &a) const { 
-  void *toPtr = a.getBuffer();
+ArrayBase::convertInto(ArrayBase &a, size_t offset) const { 
+  if (offset + count_ > a.getCapacity()) {
+    a.allocateBuffer(offset + count_);
+  }
+  char *toPtr = (char *)a.getBuffer();  // type as char* so there is an element size
+  if (offset)
+    toPtr += (offset * BasicType::getSize(a.getType()));
   const void *fromPtr = getBuffer();
   BasicType::convertArray(toPtr, a.type_, fromPtr, type_, count_);
+  a.count_ = offset + count_;
 }
 
 
@@ -275,7 +296,7 @@ bool operator==(const ArrayBase &lhs, const ArrayBase &rhs) {
       // An ArrayRef, the ArrayRef does not own the buffer
       // but we can overwrite the buffer if there is room.
       size_t neededSize = numElements * BasicType::getSize(elementType);
-      size_t actualSize = a.count_ * BasicType::getSize(a.type_);
+      size_t actualSize = a.capacity_ * BasicType::getSize(a.type_);
       NTA_CHECK(actualSize >= neededSize) << "deserialize into an ArrayRef object...Not enough space in buffer.";
       a.count_ = numElements;
       a.type_ = elementType;

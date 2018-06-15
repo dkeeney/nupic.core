@@ -82,8 +82,8 @@ namespace nupic
     bool periodic_;
     Real64 sensedValue_;
     ScalarEncoderBase* encoder_;
-    const Output* encodedOutput_;
-    const Output* bucketOutput_;
+    Output* encodedOutput_;
+    Output* bucketOutput_;
   };
 }
 

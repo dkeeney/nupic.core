@@ -41,7 +41,6 @@ Methods related to inputs and outputs are in Region_io.cpp
 #include <nupic/engine/RegionImpl.hpp>
 #include <nupic/engine/RegionImplFactory.hpp>
 #include <nupic/engine/Spec.hpp>
-#include <nupic/ntypes/NodeSet.hpp>
 #include <nupic/os/Timer.hpp>
 #include <nupic/utils/Log.hpp>
 #include <nupic/ntypes/BundleIO.hpp>
@@ -54,19 +53,13 @@ class GenericRegisteredRegionImpl;
 Region::Region(std::string name, const std::string &nodeType,
                const std::string &nodeParams, Network *network)
     : name_(std::move(name)), type_(nodeType), initialized_(false),
-      enabledNodes_(nullptr), network_(network), profilingEnabled_(false) 
+      network_(network), profilingEnabled_(false) 
 {
   // Set region info before creating the RegionImpl so that the
   // Impl has access to the region info in its constructor.
   RegionImplFactory &factory = RegionImplFactory::getInstance();
   spec_ = factory.getSpec(nodeType);
 
-  // Dimensions start off as unspecified, but if
-  // the RegionImpl only supports a single node, we
-  // can immediately set the dimensions.
-  if (spec_->singleNodeOnly)
-    dims_.push_back(1); // means 'don't care'
-  // else dims_ = []
 
   impl_ = factory.createRegionImpl(nodeType, nodeParams, this);
   createInputsAndOutputs_();
@@ -74,26 +67,15 @@ Region::Region(std::string name, const std::string &nodeType,
 
 // Deserialize region
 Region::Region(std::string name, const std::string &nodeType,
-               const Dimensions &dimensions, BundleIO &bundle, Network *network)
+               BundleIO &bundle, Network *network)
     : name_(std::move(name)), type_(nodeType), initialized_(false),
-      enabledNodes_(nullptr), network_(network), profilingEnabled_(false) 
+      network_(network), profilingEnabled_(false) 
 {
   // Set region info before creating the RegionImpl so that the
   // Impl has access to the region info in its constructor.
   RegionImplFactory &factory = RegionImplFactory::getInstance();
   spec_ = factory.getSpec(nodeType);
 
-  // Dimensions start off as unspecified, but if
-  // the RegionImpl only supports a single node, we
-  // can immediately set the dimensions.
-  if (spec_->singleNodeOnly)
-    if (!dimensions.isDontcare() && !dimensions.isUnspecified() &&
-        !dimensions.isOnes())
-      NTA_THROW << "Attempt to deserialize region of type " << nodeType
-                << " with dimensions " << dimensions
-                << " but region supports exactly one node.";
-
-  dims_ = dimensions;
   createInputsAndOutputs_();
   impl_ = factory.deserializeRegionImpl(nodeType, bundle, this);
 
@@ -108,7 +90,7 @@ void Region::createInputsAndOutputs_() {
     const std::pair<std::string, OutputSpec> &p = spec_->outputs.getByIndex(i);
     std::string outputName = p.first;
     const OutputSpec &os = p.second;
-    auto output = new Output(*this, os.dataType, os.regionLevel);
+    auto output = new Output(*this, os.dataType);
     outputs_[outputName] = output;
     // keep track of name in the output also -- see note in Region.hpp
     output->setName(outputName);
@@ -120,7 +102,7 @@ void Region::createInputsAndOutputs_() {
     std::string inputName = p.first;
     const InputSpec &is = p.second;
 
-    auto input = new Input(*this, is.dataType, is.regionLevel);
+    auto input = new Input(*this, is.dataType);
     inputs_[inputName] = input;
     // keep track of name in the input also -- see note in Region.hpp
     input->setName(inputName);
@@ -158,7 +140,6 @@ Region::~Region() {
   inputs_.clear();
 
   delete impl_;
-  delete enabledNodes_;
 }
 
 void Region::initialize() {
@@ -191,8 +172,6 @@ void Region::registerCPPRegion(const std::string name,
 void Region::unregisterCPPRegion(const std::string name) {
   RegionImplFactory::unregisterCPPRegion(name);
 }
-
-const Dimensions &Region::getDimensions() const { return dims_; }
 
 void Region::enable() {
   NTA_THROW << "Region::enable not implemented (region name: " << getName()
@@ -237,38 +216,10 @@ void Region::compute() {
   return;
 }
 
-/**
- * These internal methods are called by Network as
- * part of initialization.
- */
-
-size_t Region::evaluateLinks() {
-  size_t nIncompleteLinks = 0;
-  for (auto &elem : inputs_) {
-    nIncompleteLinks += (elem.second)->evaluateLinks();
-  }
-  return nIncompleteLinks;
-}
-
-std::string Region::getLinkErrors() const {
-
-  std::stringstream ss;
-  for (const auto &elem : inputs_) {
-    const std::vector<Link_Ptr_t> &links = elem.second->getLinks();
-    for (const auto &link : links) {
-      if ((link)->getSrcDimensions().isUnspecified() ||
-          (link)->getDestDimensions().isUnspecified()) {
-        ss << (link)->toString() << "\n";
-      }
-    }
-  }
-
-  return ss.str();
-}
 
 size_t Region::getNodeOutputElementCount(const std::string &name) {
   // Use output count if specified in nodespec, otherwise
-  // ask the Impl
+  // ask the region Impl what it expects to produce.
   NTA_CHECK(spec_->outputs.contains(name));
   size_t count = spec_->outputs.getByName(name).count;
   if (count == 0) {
@@ -310,56 +261,7 @@ void Region::initInputs() const {
   }
 }
 
-void Region::setDimensions(Dimensions &newDims) {
-  // Can only set dimensions one time
-  if (dims_ == newDims)
-    return;
 
-  if (dims_.isUnspecified()) {
-    if (newDims.isDontcare()) {
-      NTA_THROW << "Invalid attempt to set region dimensions to dontcare value";
-    }
-
-    if (!newDims.isValid()) {
-      NTA_THROW << "Attempt to set region dimensions to invalid value:"
-                << newDims.toString();
-    }
-
-    dims_ = newDims;
-    dimensionInfo_ = "Specified explicitly in setDimensions()";
-  } else {
-    NTA_THROW << "Attempt to set dimensions of region " << getName() << " to "
-              << newDims.toString() << " but region already has dimensions "
-              << dims_.toString();
-  }
-
-  // can only create the enabled node set after we know the number of dimensions
-  setupEnabledNodeSet();
-}
-
-void Region::setupEnabledNodeSet() {
-  NTA_CHECK(dims_.isValid());
-
-  if (enabledNodes_ != nullptr) {
-    delete enabledNodes_;
-  }
-
-  size_t nnodes = dims_.getCount();
-  enabledNodes_ = new NodeSet(nnodes);
-
-  enabledNodes_->allOn();
-}
-
-const NodeSet &Region::getEnabledNodes() const {
-  NTA_CHECK (enabledNodes_ == nullptr) << "Attempt to access enabled nodes set before region has been  initialized";
-  return *enabledNodes_;
-}
-
-void Region::setDimensionInfo(const std::string &info) {
-  dimensionInfo_ = info;
-}
-
-const std::string &Region::getDimensionInfo() const { return dimensionInfo_; }
 
 void Region::removeAllIncomingLinks() {
   InputMap::const_iterator i = inputs_.begin();

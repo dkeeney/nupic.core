@@ -28,12 +28,11 @@
 #include <sstream>
 #include <exception>
 
-#include <boost/filesystem.hpp>
+//#include <boost/filesystem.hpp>
 
 #include <nupic/engine/Network.hpp>
 #include <nupic/engine/NuPIC.hpp>
 #include <nupic/engine/Region.hpp>
-#include <nupic/ntypes/Dimensions.hpp>
 #include <nupic/os/FStream.hpp>
 #include <nupic/os/Path.hpp>
 
@@ -44,32 +43,28 @@
 #include <gtest/gtest.h>
 
 using namespace nupic;
-namespace fs = boost::filesystem;
 
 TEST(WatcherTest, SampleNetwork)
 {
   //generate sample network
   Network n;
-  n.addRegion("level1", "TestNode", "");
-  n.addRegion("level2", "TestNode", "");
+  n.addRegion("level1", "TestNode", "{count: 64}");
+  n.addRegion("level2", "TestNode", "{count: 64}");
   n.addRegion("level3", "TestNode", "");
-  Dimensions d;
-  d.push_back(8);
-  d.push_back(4);
-  n.getRegions().getByName("level1")->setDimensions(d);
   n.link("level1", "level2", "TestFanIn2", "");
   n.link("level2", "level3", "TestFanIn2", "");
   n.initialize();
 
-  auto file_name = fs::path("testfile");
-  if (fs::exists(file_name))
-  {
-      fs::remove(file_name);
+  if (Path::exists("TestOutputDir/testfile")) {
+    Path::remove("TestOutputDir/testfile");
+  }
+  if (Path::exists("TestOutputDir/testfile2")) {
+    Path::remove("TestOutputDir/testfile2");
   }
 
  
   //test creation
-  Watcher w("testfile");
+  Watcher w("TestOutputDir/testfile");
 
   //test uint32Params
   auto id1 = w.watchParam("level1", "uint32Param");
@@ -95,7 +90,7 @@ TEST(WatcherTest, SampleNetwork)
   w.attachToNetwork(n);
 
   //test two simultaneous Watchers on the same network with different files
-  Watcher* w2 = new Watcher("testfile2");
+  Watcher* w2 = new Watcher("TestOutputDir/testfile2");
 
   //test int64ArrayParam
   w2->watchParam("level1", "int64ArrayParam");
@@ -123,12 +118,15 @@ TEST(WatcherTest, SampleNetwork)
 
   //test to make sure data is flushed when Watcher is deleted
   delete w2;
+
+  // do not remove the two files...used in next test
 }
   
 TEST(WatcherTest, FileTest1)
 {
   //test file output
-  std::ifstream inStream("testfile");
+  ASSERT_TRUE(Path::exists("TestOutputDir/testfile"));
+  std::ifstream inStream("TestOutputDir/testfile");
 
   std::string tempString;
   if (inStream.is_open())
@@ -212,12 +210,13 @@ TEST(WatcherTest, FileTest1)
     inStream.close();
   }
 
-  fs::remove("testfile");
+  Path::remove("TestOutputDir/testfile");
 }
   
 TEST(WatcherTest, FileTest2)
 {
-  std::ifstream inStream2("testfile2");
+  ASSERT_TRUE(Path::exists("TestOutputDir/testfile2"));
+  std::ifstream inStream2("TestOutputDir/testfile2");
   std::string tempString;
   if (inStream2.is_open())
   {
@@ -256,7 +255,7 @@ TEST(WatcherTest, FileTest2)
         stream << "3, " << i << ", 64";
         if (i == 1)
         {
-          for (unsigned int j = 3; j < 64; j+=2)
+          for (unsigned int j = 2; j < 64; j++)
           {
             stream << " " << j;
           }
@@ -282,5 +281,5 @@ TEST(WatcherTest, FileTest2)
   }
   inStream2.close();
         
-  fs::remove("testfile2");
+  Path::remove("TestOutputDir/testfile2");
 }

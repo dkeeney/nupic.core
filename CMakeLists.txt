@@ -146,17 +146,12 @@ set(engine_files
     ${nupic_src}/engine/Input.hpp
     ${nupic_src}/engine/Link.cpp
     ${nupic_src}/engine/Link.hpp
-    ${nupic_src}/engine/LinkPolicy.hpp
-    ${nupic_src}/engine/LinkPolicyFactory.cpp
-    ${nupic_src}/engine/LinkPolicyFactory.hpp
     ${nupic_src}/engine/Network.cpp
     ${nupic_src}/engine/Network.hpp
     ${nupic_src}/engine/NuPIC.cpp
     ${nupic_src}/engine/NuPIC.hpp
     ${nupic_src}/engine/Output.cpp
     ${nupic_src}/engine/Output.hpp
-    # ${nupic_src}/engine/PyBindRegion.cpp
-    # ${nupic_src}/engine/PyBindRegion.hpp
     ${nupic_src}/engine/Region.cpp
     ${nupic_src}/engine/Region.hpp
     ${nupic_src}/engine/RegionImpl.cpp
@@ -168,12 +163,8 @@ set(engine_files
     ${nupic_src}/engine/RegisteredRegionImpl.hpp
     ${nupic_src}/engine/Spec.cpp
     ${nupic_src}/engine/Spec.hpp
-    ${nupic_src}/engine/TestFanIn2LinkPolicy.cpp
-    ${nupic_src}/engine/TestFanIn2LinkPolicy.hpp
     ${nupic_src}/engine/TestNode.cpp
     ${nupic_src}/engine/TestNode.hpp
-    ${nupic_src}/engine/UniformLinkPolicy.cpp
-    ${nupic_src}/engine/UniformLinkPolicy.hpp
     ${nupic_src}/engine/YAMLUtils.cpp
     ${nupic_src}/engine/YAMLUtils.hpp
 )
@@ -221,12 +212,9 @@ set(ntypes_files
     ${nupic_src}/ntypes/BundleIO.hpp
     ${nupic_src}/ntypes/Collection.cpp
     ${nupic_src}/ntypes/Collection.hpp
-    ${nupic_src}/ntypes/Dimensions.cpp
-    ${nupic_src}/ntypes/Dimensions.hpp
     ${nupic_src}/ntypes/MemParser.cpp
     ${nupic_src}/ntypes/MemParser.hpp
     ${nupic_src}/ntypes/MemStream.hpp
-    ${nupic_src}/ntypes/NodeSet.hpp
     ${nupic_src}/ntypes/ObjectModel.h
     ${nupic_src}/ntypes/ObjectModel.hpp
     ${nupic_src}/ntypes/Scalar.cpp

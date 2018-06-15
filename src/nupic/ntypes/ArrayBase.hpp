@@ -103,6 +103,13 @@ namespace nupic
     size_t
     getCount() const;
 
+    void setCount(size_t count);
+
+    // capacity of buffer
+    size_t 
+    getCapacity() const;
+
+
     NTA_BasicType
     getType() const;
 
@@ -125,10 +132,11 @@ namespace nupic
     // buffer_ is typed so that we can use new/delete
     // cast to/from void* as necessary
     std::shared_ptr<char> buffer_;
-    size_t count_;
-    NTA_BasicType type_;
+    size_t count_;      // number of elements in the buffer
+    size_t capacity_;   // size of the allocated buffer
+    NTA_BasicType type_;// type of data in this buffer
     bool own_;
-    void convertInto(const ArrayBase &a) const;
+    void convertInto(ArrayBase &a, size_t offset=0) const;
 
 
   private:

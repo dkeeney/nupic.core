@@ -1,4 +1,3 @@
-.kdev4
 .metadata
 .idea
 *.manifest
@@ -18,9 +17,6 @@ htmlcov/
 .vscode
 .ycm_extra_conf.py
 
-# KDevelop
-.kdev4
-nupic.core.kdev4
 
 # Build files
 build/
